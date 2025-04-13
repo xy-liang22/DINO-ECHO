@@ -36,7 +36,7 @@ python run.py --model dinov2_large_classifier \
                         --epochs 5 \
                         --warmup_epochs 1 \
                         --max_frames 128 \
-                        --num_workers 20 \
+                        --num_workers 12 \
                         --num_classes <number-of-classes> \
                         --blr 1e-3 \
                         --layer_decay 0.95 \
