@@ -1,0 +1,1 @@
+from .dinov2_as_classifier import dinov2_large_classifier
