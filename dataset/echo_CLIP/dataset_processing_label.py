@@ -115,6 +115,7 @@ task_prompts = {
 }
 
 prompts_DF_severity = {
+    "normal": ["diastolic dysfunction. "],
     "grade 1": ["Impaired relaxation pattern with reduced mitral annular e' velocity and prolonged deceleration time. "],
     "grade 2": ["Pseudonormal mitral inflow with elevated E/e' ratio and left atrial enlargement. "],
     "grade 3": ["Restrictive filling with short deceleration time and severely elevated E/e'. "],
@@ -220,8 +221,8 @@ def merge(merged_embedding_path, embedding_dir, **kwargs):
     }
 
     Args:
-        merged_embedding_path (_type_): path to the output merged file
-        embedding_dir (_type_): directory containing the embedding files
+        merged_embedding_path (str): path to the output merged file
+        embedding_dir (str): directory containing the embedding files
     """
     if os.path.exists(merged_embedding_path):
        merged_embeddings = torch.load(merged_embedding_path)
@@ -250,9 +251,9 @@ def dataset_filtering(echo_clip, task_set, merged_embedding_path, csv_dir, new_c
     Filter the dataset to only include the videos that have largest similarity with prompts in each studies for each positive sample, and a randomly chosen video for each negative sample, output into a csv file.
 
     Args:
-        merged_embedding_path (_type_): path to the merged embedding file
-        csv_dir (_type_): path to the original csv directory
-        new_csv_dir (_type_): path to the new dataset directory
+        merged_embedding_path (str): path to the merged embedding file
+        csv_dir (str): path to the original csv directory
+        new_csv_dir (str): path to the new dataset directory
     """
     print(f"✊✊✊ Loading merged embeddings from {merged_embedding_path} ✊✊✊")
     merged_embeddings = torch.load(merged_embedding_path)
@@ -276,60 +277,57 @@ def dataset_filtering(echo_clip, task_set, merged_embedding_path, csv_dir, new_c
         
         for label in labels[task]:
             assert label in labels[task]
-            if label in ['normal', '0', '0.0']:
-                continue
-            if task != 'DF_severity':
-                label_to_prompts[label] = [prompt.replace('*', 'label').upper() for prompt in task_prompts[task]]
-            else:
-                label_to_prompts[label] = prompts_DF_severity[label]
             
+            if task != 'DF_severity':
+                if label in ['normal', '0', '0.0']:
+                    # give all negative samples a positive prompt
+                    label_to_prompts[label] = [prompt.replace('* ', '').upper() for prompt in task_prompts[task]]
+                else:
+                    label_to_prompts[label] = [prompt.replace('*', label).upper() for prompt in task_prompts[task]]
+            else:
+                label_to_prompts[label] = prompts_DF_severity[label].upper()
+                
             label_to_prompt_embedding[label] = F.normalize(echo_clip.encode_text(tokenize(label_to_prompts[label]).to(device)), dim=-1)
         
-        similarity_sum = 0
-        similarity_count = 0
-        similarity_all = 0
-        similarity_all_count = 0
+        max_similarity_sum = 0
+        max_similarity_count = 0
+        all_similarity = 0
+        all_similarity_count = 0
         with tqdm(total=len(df['label']), desc=f"Processing {task}") as pbar:
             for (path, label, split) in zip(list(df["path"]), list(df["label"]), list(df["split"])):
                 
                 assert label in labels[task]
+                assert path in merged_embeddings
                 
-                if label not in ['normal', '0', '0.0']:
-                    assert path in merged_embeddings
-                    max_similarity = 0
-                    max_video = None
-                    prompt_embedding = label_to_prompt_embedding[label] # [n, 512]
-                    for video_path, video_embedding in merged_embeddings[path].items():
-                        video_embedding = video_embedding.to(device) # [1, 512]
-                        similarity = (video_embedding @ prompt_embedding.T).mean(dim=-1).item()
-                        
-                        assert similarity >= 0, f"similarity = {similarity} is incorrect"
-                        
-                        if similarity > max_similarity:
-                            max_similarity = similarity
-                            max_video = video_path
-                        
-                        similarity_all += similarity
-                        similarity_all_count += 1
-                        
-                    assert max_video is not None
-                    out_data["label"].append(label)
-                    out_data["split"].append(split)
-                    out_data["path"].append(max_video)
+                max_similarity = 0
+                max_video = None
+                prompt_embedding = label_to_prompt_embedding[label] # [n, 512]
+                for video_path, video_embedding in merged_embeddings[path].items():
+                    video_embedding = video_embedding.to(device) # [1, 512]
+                    similarity = (video_embedding @ prompt_embedding.T).mean(dim=-1).item()
                     
-                    similarity_sum += max_similarity
-                    similarity_count += 1
-                else:
-                    random_video = path + '/' + np.random.choice(os.listdir(os.path.join(dataset_dir, path)))
-                    out_data["label"].append(label)
-                    out_data["split"].append(split)
-                    out_data["path"].append(random_video)
+                    assert similarity >= 0, f"similarity = {similarity} is incorrect"
+                    
+                    if similarity > max_similarity:
+                        max_similarity = similarity
+                        max_video = video_path
+                    
+                    all_similarity += similarity
+                    all_similarity_count += 1
+                    
+                assert max_video is not None
+                out_data["label"].append(label)
+                out_data["split"].append(split)
+                out_data["path"].append(max_video)
+                
+                max_similarity_sum += max_similarity
+                max_similarity_count += 1
                     
                 pbar.update(1)
                 pbar.set_postfix({
-                    "avg max_similarity": f"{similarity_sum / similarity_count:.4f}" if similarity_count > 0 else "N/A", "similarity_count": similarity_count,
-                    "avg all_similarity": f"{similarity_all / similarity_all_count:.4f}" if similarity_all_count > 0 else "N/A",
-                    "similarity_all_count": similarity_all_count,
+                    "avg max_similarity": f"{max_similarity_sum / max_similarity_count:.4f}" if max_similarity_count > 0 else "N/A", "similarity_count": max_similarity_count,
+                    "avg all_similarity": f"{all_similarity / all_similarity_count:.4f}" if all_similarity_count > 0 else "N/A",
+                    "all_similarity_count": all_similarity_count,
                 })
         out_data = pd.DataFrame(data=out_data)
         out_data.to_csv(new_csv_dir + f"{task}.csv", index=None)
@@ -348,7 +346,7 @@ def argparse_args():
     parser.add_argument("--dataset_dir", type=str, default="/mnt/hanoverdev/data/patxiao/ECHO_numpy/20250126/", help="Path to the dataset directory")
     parser.add_argument("--studies_path", type=str, default="/mnt/hanoverdev/scratch/hanwen/xyliang/ECHO_dataset_csv/studies.json", help="Path to the studies json file")
     parser.add_argument("--embedding_dir", type=str, default="/mnt/hanoverdev/scratch/hanwen/xyliang/ECHO_dataset_csv/embedding_v4/", help="Path to the embedding file")
-    parser.add_argument("--merged_embedding_path", type=str, default="/mnt/hanoverdev/scratch/hanwen/xyliang/ECHO_dataset_csv/merged_embedding_v4.pt", help="Path to the output merged file")
+    parser.add_argument("--merged_embedding_path", type=str, default="/mnt/hanoverdev/scratch/hanwen/xyliang/ECHO_dataset_csv/merged_embedding_all_v4.pt", help="Path to the output merged file")
     parser.add_argument("--new_csv_dir", type=str, default="/mnt/hanoverdev/scratch/hanwen/xyliang/ECHO_dataset_csv/label_dataset_v4/", help="Path to the new dataset csv directory")
     
     parser.add_argument("--save_studies", action="store_true", default=False, help="Save the studies that need to compute embeddings")
@@ -356,11 +354,11 @@ def argparse_args():
     parser.add_argument("--check_progress", action="store_true", default=False, help="check_progress the progress of the studies")
     parser.add_argument("--merge", action="store_true", default=False, help="Merge the embeddings into one file")
     parser.add_argument("--dataset_filtering", action="store_true", default=False, help="Filter the dataset to only include the videos that have largest similarity with prompts in each studies, output into a csv file")
-    parser.add_argument("--device", type=str, default="cuda:3", default=False, help="Device to use for computation")
+    parser.add_argument("--device", type=str, default="cuda:3", help="Device to use for computation")
     return parser.parse_args()
 
-task_set = ['AV_regurgitation_severity', 'AV_regurgitation', 'AV_stenosis_severity', 'AV_stenosis', 'AV_vegetations', 'DF_severity', 'DF', 'IMT', 'IS', 'LAD_severity', 'LAD', 'LHF_severity', 'LHF', 'LVD_severity', 'LVD', 'LVH_severity', 'LVH', 'MV_regurgitation_severity', 'MV_regurgitation', 'MV_stenosis_severity', 'MV_stenosis', 'MV_vegetations', 'PE_severity', 'PE', 'PV_regurgitation_severity', 'PV_regurgitation', 'PV_stenosis_severity', 'PV_stenosis', 'PV_vegetations', 'RAD_severity', 'RAD', 'RHF_severity', 'RHF', 'RVD_severity', 'RVD', 'TAPSE_severity', 'TV_regurgitation_severity', 'TV_regurgitation', 'TV_stenosis_severity', 'TV_stenosis', 'TV_vegetations']
-# task_set = ['LHF']
+# task_set = ['AV_regurgitation_severity', 'AV_regurgitation', 'AV_stenosis_severity', 'AV_stenosis', 'AV_vegetations', 'DF_severity', 'DF', 'IMT', 'IS', 'LAD_severity', 'LAD', 'LHF_severity', 'LHF', 'LVD_severity', 'LVD', 'LVH_severity', 'LVH', 'MV_regurgitation_severity', 'MV_regurgitation', 'MV_stenosis_severity', 'MV_stenosis', 'MV_vegetations', 'PE_severity', 'PE', 'PV_regurgitation_severity', 'PV_regurgitation', 'PV_stenosis_severity', 'PV_stenosis', 'PV_vegetations', 'RAD_severity', 'RAD', 'RHF_severity', 'RHF', 'RVD_severity', 'RVD', 'TAPSE_severity', 'TV_regurgitation_severity', 'TV_regurgitation', 'TV_stenosis_severity', 'TV_stenosis', 'TV_vegetations']
+task_set = ['DF_severity']
 
 csv_dir = "/mnt/hanoverdev/scratch/hanwen/xyliang/ECHO_dataset_csv/label_v4/"
 dataset_dir = "/mnt/hanoverdev/data/patxiao/ECHO_numpy/20250126/"
@@ -381,6 +379,6 @@ if args.compute_embeddings:
 if args.check_progress:
     check_progress(**vars(args))
 if args.merge:
-    merge(task_set, echo_clip, **vars(args))
+    merge(**vars(args))
 if args.dataset_filtering:
     dataset_filtering(echo_clip, task_set, **vars(args))

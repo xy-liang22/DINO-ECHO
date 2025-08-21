@@ -41,6 +41,14 @@ def get_args_parser():
     )
     
     parser.add_argument(
+        "--clip_model_name",
+        default="DINOv2_BiomedBERT_study_new",
+        type=str,
+        metavar="MODEL",
+        help="Name of the CLIP model to use for classification",
+    )
+    
+    parser.add_argument(
         "--num_transformer_layers",
         default=1,
         type=int,
@@ -80,6 +88,14 @@ def get_args_parser():
     )
     parser.add_argument(
         "--weight_decay", type=float, default=0.05, help="weight decay (default: 0.05)"
+    )
+    
+    parser.add_argument(
+        "--hidden_dim",
+        type=int,
+        default=1024,
+        metavar="N",
+        help="hidden dimension of the classifier layer (default: 1024)",
     )
 
     parser.add_argument(
@@ -231,6 +247,17 @@ def get_args_parser():
         help="The csv file indicating the samples and labels",
     )
     parser.add_argument(
+        "--prompt_path",
+        default="",
+        help="The path to the prompt file, which is a json file containing the prompts for each text and class",
+    )
+    parser.add_argument(
+        "--task_name",
+        default="LHF",
+        type=str,
+        help="The name of the task, for finding corresponding prompts",
+    )
+    parser.add_argument(
         "--output_dir",
         default="",
         help="path where to save, empty for no saving",
@@ -290,7 +317,7 @@ def get_args_parser():
         type=str, 
         default='last_epoch', 
         help='model selection', 
-        choices=['val', 'last_epoch']
+        choices=['val', 'last_epoch', 'auroc']
     )
     parser.add_argument(
         '--N_val', type=int, default=5, help='validation frequency'
@@ -302,6 +329,7 @@ def get_args_parser():
         help='Weighted sampling'
     )
     parser.add_argument("--eval", action="store_true", help="Perform evaluation only")
+    parser.add_argument("--n_bootstrap_eval", default=0, type=int, help="Number of bootstrap evaluations")
     parser.add_argument(
         "--dist_eval",
         action="store_true",

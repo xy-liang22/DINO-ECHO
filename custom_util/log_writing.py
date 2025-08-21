@@ -17,7 +17,9 @@ class CustomLogger:
                 group=args.wandb_group,
                 name=args.fold_run_name,
                 dir=args.wandb_dir,
+                id=args.fold_run_name,
                 config=vars(args),
+                reinit=True
             )
             self.log_writer = wandb
         elif args.log_writer_type == "tensorboard" and args.log_dir is not None:

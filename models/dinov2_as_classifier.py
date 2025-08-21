@@ -37,16 +37,14 @@ class DINOv2AsClassifier(nn.Module):
                  hidden_dim: int=768,
                  **kwargs):
         '''
-        Implement the DINOv2 model with attention mechanism for ABMIL task.
+        Implement the DINOv2 model with attention mechanism for ECHO classification task.
 
         Arguments:
         ----------
-        dinov2_config (str): path to the DINOv2 config file
-        pretrained (str): path to the pretrained model
+        config_path (str): path to the DINOv2 config file
         num_classes (int): number of classes
+        pretrained (str): path to the pretrained model
         hidden_dim (int): hidden dimension
-        dropout (float): dropout rate
-        pooling (str): pooling method, possible values: 'ABMIL', 'mean', 'max', 'center'
         '''
         
         super(DINOv2AsClassifier, self).__init__()

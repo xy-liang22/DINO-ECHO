@@ -12,6 +12,12 @@
 import datetime
 import json
 import os
+
+import sys
+OPEN_CLIP_SRC_PATH = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'open_clip', 'src')
+sys.path.insert(0, OPEN_CLIP_SRC_PATH)
+print(f"Adding {OPEN_CLIP_SRC_PATH} to sys.path")
+
 import time
 
 import models
@@ -40,11 +46,12 @@ from timm.loss import LabelSmoothingCrossEntropy, SoftTargetCrossEntropy
 
 
 
+
 def main(args):
 
     if args.output_dir:
         Path(args.output_dir).mkdir(parents=True, exist_ok=True)
-        if os.path.exists(os.path.join(args.output_dir, "results.csv")):
+        if (os.path.exists(os.path.join(args.output_dir, "results.csv")) and not args.eval) or (args.eval and (os.path.exists(args.eval_path) or os.path.exists(os.path.join(args.output_dir, "results_bootstrap.csv")))):
             print("Output dir {} exists, skipping.".format(args.output_dir))
             return
     else:
@@ -99,7 +106,7 @@ def run_one_fold(args, device, fold_i):
     # whether make the dataset balanced
     if args.balanced_dataset:
         train_splits = eval_dataset.balance_dataset(train_splits[0], train_splits[1])
-        val_splits = eval_dataset.balance_dataset(val_splits[0], val_splits[1])
+        # val_splits = eval_dataset.balance_dataset(val_splits[0], val_splits[1])
 
     dataset_train = datacls(df=data_df, splits=train_splits, processor=train_transform, **vars(args))
     dataset_val = datacls(df=data_df, splits=val_splits, processor=val_transform, **vars(args))
@@ -138,7 +145,7 @@ def run_one_fold(args, device, fold_i):
         batch_size=args.batch_size,
         num_workers=args.num_workers,
         pin_memory=args.pin_mem,
-        drop_last=True,
+        # drop_last=True,
     )
     data_loader_val = torch.utils.data.DataLoader(
         dataset_val,
@@ -175,18 +182,22 @@ def run_one_fold(args, device, fold_i):
     model.to(device)
     
     if args.resume:
-        model.load_state_dict(torch.load(args.resume), strict=False)
-        print(f"Loaded model from {args.resume}")
+        msg = model.load_state_dict(torch.load(args.resume), strict=False)
+        print(f"Loaded model from {args.resume} with msg {msg}")
     
     n_parameters = sum(p.numel() for p in model.parameters() if p.requires_grad)
     # print("Model = %s" % str(model_without_ddp))
     print("number of params (M): %.4f" % (n_parameters / 1.0e6))
     
     if args.eval:
-        test_stats = evaluate(data_loader_test, model, device)
+        test_stats = evaluate(data_loader_test, model, device, n_bootstrap_eval=args.n_bootstrap_eval)
         if args.eval_path:
             with pathmgr.open(args.eval_path, "w") as f:
                 json.dump(test_stats, f, indent=4)
+        if args.n_bootstrap_eval and args.output_dir:
+            test_stats = pd.DataFrame(test_stats)
+            test_stats.to_csv(os.path.join(args.output_dir, "results_bootstrap.csv"), index=False)
+            print("Saved bootstrap evaluation results to %s" % os.path.join(args.output_dir, "results_bootstrap.csv"))
         exit(0)
 
     eff_batch_size = (
@@ -309,14 +320,15 @@ def run_one_fold(args, device, fold_i):
         # save val results to log
         if args.fold_output_dir and misc.is_main_process():
             log_writer.flush(log_stats, f"{args.fold_output_dir}/log_epoch.jsonl")
-        
-        if val_stats["AUROC"] > max_auroc:
-            max_auroc = val_stats["AUROC"]
 
         # save the best model
         if args.model_select == "val":
             if val_stats["loss"] < best_loss:
                 best_loss = val_stats["loss"]
+                best_model = model.state_dict()
+        elif args.model_select == "auroc":
+            if val_stats["AUROC"] > max_auroc:
+                max_auroc = val_stats["AUROC"]
                 best_model = model.state_dict()
         elif args.model_select == "last_epoch":
             if epoch == args.epochs - 1:

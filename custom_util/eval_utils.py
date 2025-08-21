@@ -7,29 +7,31 @@ import monai.transforms as monai_transforms
 from sklearn.model_selection import train_test_split
 
 
-def create_transforms(image_size, num_frames=512, max_frames=512, RandFlipd_prob=0.5, RandRotate90d_prob=0.5, **kwargs):
-    # create the transform function
-    train_transform = monai_transforms.Compose(
-        [   
-            monai_transforms.ResizeWithPadOrCropd(
-                keys=["pixel_values"], spatial_size=(max_frames, -1, -1)
-            ),
-            monai_transforms.Resized(
-                keys=["pixel_values"], spatial_size=(num_frames, image_size, image_size), mode=("bilinear")
-            ),
-        ]
-    )
-    
-    val_transform = monai_transforms.Compose(
-        [
-            monai_transforms.ResizeWithPadOrCropd(
-                keys=["pixel_values"], spatial_size=(max_frames, -1, -1)
-            ),
-            monai_transforms.Resized(
-                keys=["pixel_values"], spatial_size=(num_frames, image_size, image_size), mode=("bilinear")
-            ),
-        ]
-    )
+def create_transforms(image_size=256, num_frames=512, max_frames=512, RandFlipd_prob=0.5, RandRotate90d_prob=0.5, dataclass=None, **kwargs):
+    train_transform, val_transform = None, None
+    if dataclass == "EchoData":
+        # create the transform function
+        train_transform = monai_transforms.Compose(
+            [   
+                monai_transforms.ResizeWithPadOrCropd(
+                    keys=["pixel_values"], spatial_size=(max_frames, -1, -1)
+                ),
+                monai_transforms.Resized(
+                    keys=["pixel_values"], spatial_size=(num_frames, image_size, image_size), mode=("bilinear")
+                ),
+            ]
+        )
+        
+        val_transform = monai_transforms.Compose(
+            [
+                monai_transforms.ResizeWithPadOrCropd(
+                    keys=["pixel_values"], spatial_size=(max_frames, -1, -1)
+                ),
+                monai_transforms.Resized(
+                    keys=["pixel_values"], spatial_size=(num_frames, image_size, image_size), mode=("bilinear")
+                ),
+            ]
+        )
 
     return train_transform, val_transform
 

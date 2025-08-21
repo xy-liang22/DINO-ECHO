@@ -1,0 +1,17 @@
+# this corresponds to the default config
+train:
+  dataset_path: ImageNet:split=TRAIN
+  batch_size_per_gpu: 96
+teacher:
+  pretrained_weights: /mnt/hanoverdev/scratch/hanwen/released_checkpoints/Dinov2/dinov2_vitl14_reg4_pretrain.pth
+student:
+  block_chunks: 0
+  num_register_tokens: 4
+  patch_size: 14
+  pretrained_weights: /mnt/hanoverdev/scratch/hanwen/released_checkpoints/Dinov2/dinov2_vitl14_reg4_pretrain.pth
+optim:
+  epochs: 500
+dino:
+  koleo_loss_weight: 0.0
+crops:
+  local_crops_size: 98

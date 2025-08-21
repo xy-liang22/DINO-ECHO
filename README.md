@@ -15,6 +15,7 @@ label,split,<field-name>
 0,test,<path-to-video-under-data-dictory>
 ...
 ```
+Videos should be transformed into `.npy` file and storeed under `<data-directory>`.
 
 ## Classifying Tasks
 ### Finetune

@@ -3,6 +3,14 @@ import torch
 import numpy as np
 from torch.utils.data import Dataset
 from custom_util.misc import IMG_MEAN, IMG_STD
+import sys
+OPEN_CLIP_SRC_PATH = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), 'open_clip', 'src')
+sys.path.insert(0, OPEN_CLIP_SRC_PATH)
+print(f"Adding {OPEN_CLIP_SRC_PATH} to sys.path")
+from open_clip import get_tokenizer
+import open_clip
+print(open_clip.__path__)
+import json
 
 
 def balance_dataset(img_paths, labels):
@@ -11,6 +19,7 @@ def balance_dataset(img_paths, labels):
         return [list[i] for i in idxs]
 
     label_types = sorted(np.unique(labels))
+    labels = np.array(labels)
     label_sizes = {label: len(np.where(labels == label)[0]) for label in label_types}
     print(f"Starting with: {'  '.join([f'{label} (N={label_sizes[label]})' for label in label_types])}")
     tgt_size = max(label_sizes.values())
@@ -31,7 +40,7 @@ def balance_dataset(img_paths, labels):
             updated_labels.extend(get_list_at_idxs(labels, rdm_sample))
         else:
             raise ValueError(f"Unexpected size {len(data_pool)} for label {label}, with max size {tgt_size} for label {label_types[0]}.")
-        updated_label_sizes[label] = len(np.where(updated_labels == label)[0])
+        updated_label_sizes[label] = len(np.where(np.array(updated_labels) == label)[0])
     print(f"\tUpdated to: {'  '.join([f'{label} (N={updated_label_sizes[label]})' for label in label_types])}")
     return updated_img_paths, updated_labels
     
@@ -121,7 +130,7 @@ class EchoData(ClassificationDataset3D):
     
     def __init__(self, data_path, df, splits, processor=None, normalize_vol=True, make_three_channel=False, data_path_field='processed_ct_volume_path', **kwargs):
         super().__init__(data_path, df, splits, processor, None, normalize_vol, make_three_channel, data_path_field)
-        self.mode = 'binary'
+        self.mode = 'binary' if self.n_classes == 2 else 'multiclass'
 
     def img_to_tensor(self, img):
         """
@@ -135,3 +144,71 @@ class EchoData(ClassificationDataset3D):
     
     def norm_vol_orientation(self, vol_tensor):
         return vol_tensor
+
+class EchoEmbeddingClassification(Dataset):
+    
+    def __init__(self, data_path, df, splits, processor=None, data_path_field='processed_ct_volume_path', **kwargs):
+        super().__init__()
+        self.df_ = df[df[data_path_field].isin(splits[0])].set_index(data_path_field).loc[splits[0]].reset_index()
+        self.studies, self.labels = self.df_[data_path_field].to_list(), self.df_['label'].to_list()
+        # append data_path as root dir to volume_paths
+        self.embedding_dict = torch.load(data_path)
+        self.embedding_dict = {study: emb.cpu() for study, emb in self.embedding_dict.items()}
+        self.processor = processor
+        
+        label_words = list(set(self.labels))
+        label_words.sort()
+        self.n_classes = len(label_words)
+        self.label_dict = {label: i for i, label in enumerate(label_words)}
+        print('Label dict:', self.label_dict)
+        print(f"Number of studies: {len(self.studies)}, Number of labels: {self.n_classes}, Number of embeddings: {len(self.embedding_dict)}")
+        
+        self.mode = 'binary' if self.n_classes == 2 else 'multiclass'
+
+    def __len__(self):
+        return len(self.studies)
+                
+    def __getitem__(self, item):
+        study = self.studies[item]
+        label = self.label_dict[self.labels[item]] if not isinstance(self.labels[item], np.ndarray) else self.labels[item]
+        embedding = self.embedding_dict[study]
+        label = torch.tensor(label).long()
+        
+        return embedding, label
+
+class EchoZeroShotClassification(Dataset):
+    
+    def __init__(self, data_path, df, splits, processor=None, data_path_field='processed_ct_volume_path', prompt_path='', task_name="LHF", clip_model_name='', **kwargs):
+        super().__init__()
+        self.df_ = df[df[data_path_field].isin(splits[0])].set_index(data_path_field).loc[splits[0]].reset_index()
+        self.studies, self.labels = self.df_[data_path_field].to_list(), self.df_['label'].to_list()
+        # append data_path as root dir to volume_paths
+        self.embedding_dict = torch.load(data_path)
+        self.embedding_dict = {study: emb.cpu() for study, emb in self.embedding_dict.items()}
+        self.processor = processor
+        
+        prompt_dict = json.load(open(prompt_path, 'r'))
+        assert task_name in prompt_dict, f"Task name {task_name} not found in prompt dictionary."
+        prompts = prompt_dict[task_name]
+        tokenizer = get_tokenizer(clip_model_name)
+        self.text_tokens = tokenizer(prompts)
+        
+        label_words = list(set(self.labels))
+        label_words.sort()
+        self.n_classes = len(label_words)
+        self.label_dict = {label: i for i, label in enumerate(label_words)}
+        print('Label dict:', self.label_dict)
+        print(f"Number of studies: {len(self.studies)}, Number of labels: {self.n_classes}, Number of embeddings: {len(self.embedding_dict)}")
+        
+        self.mode = 'binary' if self.n_classes == 2 else 'multiclass'
+
+    def __len__(self):
+        return len(self.studies)
+                
+    def __getitem__(self, item):
+        study = self.studies[item]
+        label = self.label_dict[self.labels[item]] if not isinstance(self.labels[item], np.ndarray) else self.labels[item]
+        embedding = self.embedding_dict[study]
+        label = torch.tensor(label).long()
+        
+        return (embedding, self.text_tokens), label

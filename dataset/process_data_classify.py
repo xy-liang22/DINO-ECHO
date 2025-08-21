@@ -21,6 +21,18 @@ labels = {
     'LVH': ['0', '1', '0.0', '1.0'],
     'IMT': ['0', '1', '0.0', '1.0'],
     'IS': ['0', '1', '0.0', '1.0'],
+    'AV_regurgitation': ['0', '1', '0.0', '1.0'],
+    'AV_stenosis': ['0', '1', '0.0', '1.0'],
+    'AV_vegetations': ['0', '1', '0.0', '1.0'],
+    'MV_regurgitation': ['0', '1', '0.0', '1.0'],
+    'MV_stenosis': ['0', '1', '0.0', '1.0'],
+    'MV_vegetations': ['0', '1', '0.0', '1.0'],
+    'PV_regurgitation': ['0', '1', '0.0', '1.0'],
+    'PV_stenosis': ['0', '1', '0.0', '1.0'],
+    'PV_vegetations': ['0', '1', '0.0', '1.0'],
+    'TV_regurgitation': ['0', '1', '0.0', '1.0'],
+    'TV_stenosis': ['0', '1', '0.0', '1.0'],
+    'TV_vegetations': ['0', '1', '0.0', '1.0'],
     'LHF_severity': ['normal', 'mild', 'moderate', 'severe'],
     'RHF_severity': ['normal', 'mild', 'moderate', 'severe'],
     'DF_severity': ['normal', 'grade 1', 'grade 2', 'grade 3'],
@@ -34,6 +46,14 @@ labels = {
     'PVA_severity': ['normal', 'mild', 'moderate', 'severe'],
     'PE_severity': ['small', 'moderate', 'large', 'tamponade physiology'],
     'LVH_severity': ['normal', 'mild', 'moderate', 'severe'],
+    'AV_regurgitation_severity': ['normal', 'mild', 'moderate', 'severe'],
+    'AV_stenosis_severity': ['normal', 'mild', 'moderate', 'severe'],
+    'MV_regurgitation_severity': ['normal', 'mild', 'moderate', 'severe'],
+    'MV_stenosis_severity': ['normal', 'mild', 'moderate', 'severe'],
+    'PV_regurgitation_severity': ['normal', 'mild', 'moderate', 'severe'],
+    'PV_stenosis_severity': ['normal', 'mild', 'moderate', 'severe'],
+    'TV_regurgitation_severity': ['normal', 'mild', 'moderate', 'severe'],
+    'TV_stenosis_severity': ['normal', 'mild', 'moderate', 'severe'],
 }
 
 def process_dataset_csv(dataset_csv_path):
@@ -142,9 +162,11 @@ def output(data, path):
             f.write(','.join(row) + '\n')
 
 def process(task_set):
-    dataset_csv_dir = '/home/patxiao/ECHO/label_v2'
+    # dataset_csv_dir = '/home/patxiao/ECHO/label_v2'
+    dataset_csv_dir = '/mnt/hanoverdev/data/patxiao/ECHO/processed_label_v4_generated20250811'
     # dataset_output_dir = '/home/patxiao/ECHO/label_dataset_v2'
-    dataset_output_dir = 'dataset_csv/ECHO/label_dataset_v2'
+    # dataset_output_dir = 'dataset_csv/ECHO/label_dataset_v2'
+    dataset_output_dir = '/mnt/hanoverdev/scratch/hanwen/xyliang/ECHO_dataset_csv/label_v4_by_llava'
     for task in task_set:
         print(f"processing {task}😊😊😊")
 
@@ -154,17 +176,18 @@ def process(task_set):
 
         data_dir_split = list(split(data_dir))
         print(data_dir_split[:10])
-        data_dir_split_path = os.path.join(dataset_output_dir, 'dir_' + task + '.csv')
+        # data_dir_split_path = os.path.join(dataset_output_dir, 'dir_' + task + '.csv')
+        data_dir_split_path = os.path.join(dataset_output_dir, task + '.csv')
         output(data_dir_split, data_dir_split_path)
 
-        data_file_split = add_file(data_dir_split)
-        print(data_file_split[:10])
-        data_file_split_path = os.path.join(dataset_output_dir, task + '.csv')
-        output(data_file_split, data_file_split_path)
+        # data_file_split = add_file(data_dir_split)
+        # print(data_file_split[:10])
+        # data_file_split_path = os.path.join(dataset_output_dir, task + '.csv')
+        # output(data_file_split, data_file_split_path)
 
 def check(task_set):
     # dataset_csv_dir = 'dataset_csv/ECHO/label_dataset_v2'
-    dataset_csv_dir = '/home/patxiao/ECHO/label_dataset_v1'
+    dataset_csv_dir = '/mnt/hanoverdev/scratch/hanwen/xyliang/ECHO_dataset_csv/label_dataset_v4_clip_mini_study_only'
     stats = {}
     labels_ = {}
     for task in task_set:
@@ -189,8 +212,9 @@ def check(task_set):
 
 
 # task_set = ['AVA', 'DF', 'IMT', 'IS', 'LAD', 'LHF', 'LVD', 'LVH', 'MVA', 'PAP', 'PE', 'PVA', 'RAD', 'RAP', 'RHF', 'RVD', 'TVA', 'AVA_severity', 'DF_severity', 'IMT', 'IS', 'LAD_severity', 'LHF_severity', 'LVD_severity', 'LVH_severity', 'MVA_severity', 'PAP', 'PE_severity', 'PVA_severity', 'RAD_severity', 'RAP', 'RHF_severity', 'RVD_severity', 'TVA_severity']
-task_set = ['AVA', 'DF', 'IMT', 'IS', 'LAD', 'LHF', 'LVD', 'LVH', 'MVA', 'PE', 'PVA', 'RAD', 'RHF', 'RVD', 'TVA', 'AVA_severity', 'DF_severity', 'IMT', 'IS', 'LAD_severity', 'LHF_severity', 'LVD_severity', 'LVH_severity', 'MVA_severity', 'PE_severity', 'PVA_severity', 'RAD_severity', 'RHF_severity', 'RVD_severity', 'TVA_severity']
+# task_set = ['AVA', 'DF', 'IMT', 'IS', 'LAD', 'LHF', 'LVD', 'LVH', 'MVA', 'PE', 'PVA', 'RAD', 'RHF', 'RVD', 'TVA', 'AVA_severity', 'DF_severity', 'IMT', 'IS', 'LAD_severity', 'LHF_severity', 'LVD_severity', 'LVH_severity', 'MVA_severity', 'PE_severity', 'PVA_severity', 'RAD_severity', 'RHF_severity', 'RVD_severity', 'TVA_severity']
+task_set = ['AV_regurgitation_severity', 'AV_regurgitation', 'AV_stenosis_severity', 'AV_stenosis', 'AV_vegetations', 'DF_severity', 'DF', 'IMT', 'IS', 'LAD_severity', 'LAD', 'LHF_severity', 'LHF', 'LVD_severity', 'LVD', 'LVH_severity', 'LVH', 'MV_regurgitation_severity', 'MV_regurgitation', 'MV_stenosis_severity', 'MV_stenosis', 'MV_vegetations', 'PE_severity', 'PE', 'PV_regurgitation_severity', 'PV_regurgitation', 'PV_stenosis_severity', 'PV_stenosis', 'PV_vegetations', 'RAD_severity', 'RAD', 'RHF_severity', 'RHF', 'RVD_severity', 'RVD', 'TV_regurgitation_severity', 'TV_regurgitation', 'TV_stenosis_severity', 'TV_stenosis', 'TV_vegetations']
 # task_set = ['PE_severity', 'PVA_severity', 'RAD_severity', 'RHF_severity', 'RVD_severity', 'TVA_severity']
-task_set = ['HF', 'HF_mini']
-# process(task_set)
-check(task_set)
+# task_set = ['HF', 'HF_mini']
+process(task_set)
+# check(task_set)

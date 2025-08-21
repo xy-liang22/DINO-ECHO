@@ -32,10 +32,10 @@ def load_pretrained_weights(model, pretrained_weights, checkpoint_key):
     state_dict = {k.replace("module.", ""): v for k, v in state_dict.items()}
     # remove `backbone.` prefix induced by multicrop wrapper
     state_dict = {k.replace("backbone.", ""): v for k, v in state_dict.items()}
-    # msg = model.load_state_dict(state_dict, strict=False)
-    # logger.info("Pretrained weights found at {} and loaded with msg: {}".format(pretrained_weights, msg))
-    model.load_state_dict(state_dict, strict=False)
-    logger.info("Pretrained weights found at {}".format(pretrained_weights))
+    msg = model.load_state_dict(state_dict, strict=False)
+    logger.info("Pretrained weights found at {} and loaded with msg: {}".format(pretrained_weights, msg))
+    # model.load_state_dict(state_dict, strict=False)
+    # logger.info("Pretrained weights found at {}".format(pretrained_weights))
 
 
 def fix_random_seeds(seed=31):
