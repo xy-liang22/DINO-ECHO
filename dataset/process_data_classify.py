@@ -187,7 +187,7 @@ def process(task_set):
 
 def check(task_set):
     # dataset_csv_dir = 'dataset_csv/ECHO/label_dataset_v2'
-    dataset_csv_dir = '/mnt/hanoverdev/scratch/hanwen/xyliang/ECHO_dataset_csv/label_dataset_v4_clip_mini_study_only'
+    dataset_csv_dir = '/mnt/hanoverdev/scratch/hanwen/xyliang/ECHO_dataset_csv/label_dataset_v4_clip_study_only'
     stats = {}
     labels_ = {}
     for task in task_set:
@@ -213,8 +213,8 @@ def check(task_set):
 
 # task_set = ['AVA', 'DF', 'IMT', 'IS', 'LAD', 'LHF', 'LVD', 'LVH', 'MVA', 'PAP', 'PE', 'PVA', 'RAD', 'RAP', 'RHF', 'RVD', 'TVA', 'AVA_severity', 'DF_severity', 'IMT', 'IS', 'LAD_severity', 'LHF_severity', 'LVD_severity', 'LVH_severity', 'MVA_severity', 'PAP', 'PE_severity', 'PVA_severity', 'RAD_severity', 'RAP', 'RHF_severity', 'RVD_severity', 'TVA_severity']
 # task_set = ['AVA', 'DF', 'IMT', 'IS', 'LAD', 'LHF', 'LVD', 'LVH', 'MVA', 'PE', 'PVA', 'RAD', 'RHF', 'RVD', 'TVA', 'AVA_severity', 'DF_severity', 'IMT', 'IS', 'LAD_severity', 'LHF_severity', 'LVD_severity', 'LVH_severity', 'MVA_severity', 'PE_severity', 'PVA_severity', 'RAD_severity', 'RHF_severity', 'RVD_severity', 'TVA_severity']
-task_set = ['AV_regurgitation_severity', 'AV_regurgitation', 'AV_stenosis_severity', 'AV_stenosis', 'AV_vegetations', 'DF_severity', 'DF', 'IMT', 'IS', 'LAD_severity', 'LAD', 'LHF_severity', 'LHF', 'LVD_severity', 'LVD', 'LVH_severity', 'LVH', 'MV_regurgitation_severity', 'MV_regurgitation', 'MV_stenosis_severity', 'MV_stenosis', 'MV_vegetations', 'PE_severity', 'PE', 'PV_regurgitation_severity', 'PV_regurgitation', 'PV_stenosis_severity', 'PV_stenosis', 'PV_vegetations', 'RAD_severity', 'RAD', 'RHF_severity', 'RHF', 'RVD_severity', 'RVD', 'TV_regurgitation_severity', 'TV_regurgitation', 'TV_stenosis_severity', 'TV_stenosis', 'TV_vegetations']
+# task_set = ['AV_regurgitation_severity', 'AV_regurgitation', 'AV_stenosis_severity', 'AV_stenosis', 'AV_vegetations', 'DF_severity', 'DF', 'IMT', 'IS', 'LAD_severity', 'LAD', 'LHF_severity', 'LHF', 'LVD_severity', 'LVD', 'LVH_severity', 'LVH', 'MV_regurgitation_severity', 'MV_regurgitation', 'MV_stenosis_severity', 'MV_stenosis', 'MV_vegetations', 'PE_severity', 'PE', 'PV_regurgitation_severity', 'PV_regurgitation', 'PV_stenosis_severity', 'PV_stenosis', 'PV_vegetations', 'RAD_severity', 'RAD', 'RHF_severity', 'RHF', 'RVD_severity', 'RVD', 'TV_regurgitation_severity', 'TV_regurgitation', 'TV_stenosis_severity', 'TV_stenosis', 'TV_vegetations']
 # task_set = ['PE_severity', 'PVA_severity', 'RAD_severity', 'RHF_severity', 'RVD_severity', 'TVA_severity']
-# task_set = ['HF', 'HF_mini']
-process(task_set)
-# check(task_set)
+task_set = ['IMT', 'IS', 'TV_stenosis', 'PV_stenosis']
+# process(task_set)
+check(task_set)

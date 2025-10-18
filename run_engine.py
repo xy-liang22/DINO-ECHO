@@ -196,6 +196,7 @@ def run_one_epoch(
 
 @torch.no_grad()
 def evaluate(data_loader, model, device, return_pred=False, n_bootstrap_eval=0):
+    print("Start evaluation")
     # ❗❗❗ TODO❗❗❗: whether use mixup in evaluation
     criterion = torch.nn.CrossEntropyLoss() if data_loader.dataset.mode != "multilabel" else torch.nn.BCEWithLogitsLoss()
 
@@ -208,6 +209,9 @@ def evaluate(data_loader, model, device, return_pred=False, n_bootstrap_eval=0):
     for images, target in metric_logger.log_every(data_loader, 10, header):
         if isinstance(images, (list, tuple)):
             images = [img.to(device, non_blocking=True) for img in images]
+        elif isinstance(images, dict):
+            for k in images:
+                images[k] = images[k].to(device, non_blocking=True)
         else:
             images = images.to(device, non_blocking=True)
         target = target.to(device, non_blocking=True)
@@ -296,9 +300,31 @@ def bootstarp_metrics(output, target, data_loader, n_bootstrap=1000):
     bootstrap_results = {}
     idx = 0
     while True:
-        indices = np.random.choice(len(target), len(target), replace=True)
+        # if target has only two classes and one class has so few samples that
+        # it might be missed in the bootstrap sampling, we select the class with too few samples
+        # and add one sample of this class to the bootstrap sample
+        if data_loader.dataset.mode == "binary":
+            unique, counts = torch.unique(target, return_counts=True)
+            count_dict = dict(zip(unique.cpu().numpy().tolist(), counts.cpu().numpy().tolist()))
+            if len(count_dict) < 2:
+                print("Only one class present in the target. Skipping this bootstrap iteration.")
+                continue
+            min_class = min(count_dict, key=count_dict.get)
+            if count_dict[min_class] < 3:
+                min_class_indices = (target == min_class).nonzero(as_tuple=True)[0]
+                extra_index = np.random.choice(min_class_indices.cpu().numpy())
+                indices = np.random.choice(len(target), len(target) - 1, replace=True)
+                indices = np.append(indices, extra_index)
+            else:
+                indices = np.random.choice(len(target), len(target), replace=True)
+        else:
+            indices = np.random.choice(len(target), len(target), replace=True)
+
         output_i = output[indices]
         target_i = target[indices]
+        if len(torch.unique(target_i)) < 2:
+            # Skip this iteration if not all classes are present
+            continue
         results = get_classification_metrics(output_i, target_i, data_loader.dataset.label_dict, mode=data_loader.dataset.mode)
         assert results is not None, "Results should not be None"
         for metric in results:
@@ -311,3 +337,26 @@ def bootstarp_metrics(output, target, data_loader, n_bootstrap=1000):
         if idx >= n_bootstrap:
             break
     return bootstrap_results
+
+def predict(data_loader, model, device):
+    metric_logger = misc.MetricLogger(delimiter="  ")
+    header = "Predict:"
+    
+    model.eval()
+    predictions = {"case_id:": list(), "file_name": list(), "prediction": list()}
+    id_to_video = data_loader.dataset.id_to_video
+    pred_to_label = data_loader.dataset.pred_to_label
+    for embeddings, video_ids in metric_logger.log_every(data_loader, 10, header):
+        if isinstance(embeddings, (list, tuple)):
+            embeddings = [emb.to(device, non_blocking=True) for emb in embeddings]
+        else:
+            embeddings = embeddings.to(device, non_blocking=True)
+        
+        with torch.cuda.amp.autocast():
+            output = model(embeddings)
+        pred = torch.argmax(output, dim=1).cpu().numpy()
+        for i in range(len(video_ids)):
+            predictions["case_id:"].append(id_to_video[video_ids[i]].split('/')[0])
+            predictions["file_name"].append(id_to_video[video_ids[i]].split('/')[1].split('.')[0])
+            predictions["prediction"].append(pred_to_label[pred[i]])
+    return predictions

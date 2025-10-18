@@ -1,26 +1,31 @@
 import pandas as pd
 import os
 
-dataset_name = "study_only"
+# dataset_name = "zeroshot_v1"
+# dataset_name = "study_only_task_selected"
+dataset_name = "surgery_indication_v0"
 
 # result_dir = f"/mnt/hanoverdev/scratch/hanwen/xyliang/ECHO_results_clip_{dataset_name}/"
              # "/mnt/hanoverdev/scratch/hanwen/xyliang/ECHO_results_clip_mini_study_only/",
              # "/mnt/hanoverdev/scratch/hanwen/xyliang/ECHO_results_clip_mini_new_study_only/",
-result_dir = "/mnt/hanoverdev/scratch/hanwen/xyliang/Zero_shot_result/"
+# result_dir = "/mnt/hanoverdev/scratch/hanwen/xyliang/Zero_shot_result/"
+result_dir = "/mnt/hanoverdev/scratch/hanwen/xyliang/ECHO_results_clip_study_only/"
 # result_dirs = ["/mnt/hanoverdev/scratch/hanwen/xyliang/ECHO_results_clip_mini/"]
 
-output_dir = f"/mnt/hanoverdev/scratch/hanwen/xyliang/Plot/{dataset_name}_zeroshot_bootstrap/Results"
+output_dir = f"/mnt/hanoverdev/scratch/hanwen/xyliang/Plot/{dataset_name}_bootstrap/Results"
 
 severity = False
 no_freeze = False
 # key_word = "epoch100_new"
-key_word = None
+key_word = "surgery_indication"
 
 def get_model_name(run):
     if "echoclip" in run:
         return "EchoCLIP"
     elif "biomedclip" in run:
         return "BioMedCLIP"
+    elif "biomedgpt" in run:
+        return "BiomedGPT"
     elif "transformer_original1" in run:
         return "DINOv2_transformer_original1"
     elif "transformer" in run:
@@ -57,7 +62,8 @@ if severity:
 else:
     runs = [run for run in runs if "severity" not in run]
 if key_word:
-    runs = [run for run in runs if key_word in run or "echoclip_epoch100" in run]
+    # runs = [run for run in runs if key_word in run or "echoclip_epoch100" in run]
+    runs = [run for run in runs if key_word in run]
     
 print(f"Found {len(runs)} runs in {result_dir}")
 result_files = [run + "/results_bootstrap.csv" for run in runs]

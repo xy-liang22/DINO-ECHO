@@ -1,10 +1,11 @@
-tasks_list=("LHF" "RHF" "DF" "LAD" "RAD" "RVD" "AV_regurgitation" "AV_stenosis" "MV_regurgitation" "MV_stenosis" "TV_regurgitation" "PE" "LVH")
-# tasks_list=("LHF")
+# tasks_list=("LHF" "RHF" "DF" "LAD" "RAD" "RVD" "AV_regurgitation" "AV_stenosis" "MV_regurgitation" "MV_stenosis" "TV_regurgitation" "PE" "LVH")
+# tasks_list=("LHF" "RHF" "DF" "LAD" "LVD" "RAD" "RVD" "AV_regurgitation" "AV_stenosis" "MV_regurgitation" "MV_stenosis" "PV_regurgitation" "TV_regurgitation" "PE" "LVH")
+tasks_list=("TV_stenosis" "PV_stenosis")
 device=cuda:2
 num_classes=2
 dataset=clip_study_only
 run_names=("study_biomedclip")
-data_paths=("echoclip_embeddings")
+data_paths=("biomedclip_embeddings")
 clip_models=("hf-hub:microsoft/BiomedCLIP-PubMedBERT_256-vit_base_patch16_224")
 for task in ${tasks_list[@]}; do
     for i in ${!run_names[@]}; do

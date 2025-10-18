@@ -4,3 +4,4 @@ from .dinov2_as_regressor import dinov2_large_regressor
 from .echoclip_as_regressor import echoclip_cnn_regressor
 from .linear_as_classifier import linear_classifier
 from .clip_as_classifier import clip_classifier
+# from .biomedgpt_as_classifier import biomedgpt_classifier

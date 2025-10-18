@@ -69,6 +69,7 @@ def get_classification_metrics(prediction: torch.Tensor, ground_truth: torch.Ten
         f1 /= len(label_dict)
         precision /= len(label_dict)
         # calculate micro AUROC
+        print(labels.shape, labels.max(), labels.min(), probs.shape)
         micro_auroc = roc_auc_score(labels, probs, average='micro', multi_class='ovr')
         # calculate macro AUROC
         macro_auroc = roc_auc_score(labels, probs, average='macro', multi_class='ovr')
@@ -105,7 +106,7 @@ def get_classification_metrics(prediction: torch.Tensor, ground_truth: torch.Ten
         metrics["micro Recall"] = micro_recall
         
         for idx, label in enumerate(label_dict):
-            if len(label_dict) < 10:
+            if len(label_dict) < 15:
                 metrics[f"AUROC ({label})"] = per_class_auroc[idx]
                 metrics[f"AUPRC ({label})"] = per_class_auprc[idx]
                 metrics[f"Recall ({label})"] = per_class_recall[idx]

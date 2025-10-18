@@ -329,7 +329,9 @@ def get_args_parser():
         help='Weighted sampling'
     )
     parser.add_argument("--eval", action="store_true", help="Perform evaluation only")
+    parser.add_argument("--predict", action="store_true", help="Perform prediction only")
     parser.add_argument("--n_bootstrap_eval", default=0, type=int, help="Number of bootstrap evaluations")
+    parser.add_argument("--choose_mini", action="store_true", help="Choose a smaller training set for fast debugging")
     parser.add_argument(
         "--dist_eval",
         action="store_true",

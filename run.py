@@ -23,6 +23,7 @@ import time
 import models
 
 import custom_util.eval_dataset as eval_dataset
+
 import custom_util.lr_decay as lrd
 import custom_util.misc as misc
 
@@ -32,7 +33,7 @@ import torch
 import torch.backends.cudnn as cudnn
 from pathlib import Path
 from iopath.common.file_io import g_pathmgr as pathmgr
-from run_engine import evaluate, run_one_epoch
+from run_engine import evaluate, run_one_epoch, predict
 
 from custom_util.decoder.mixup import MixUp as MixVideo
 from custom_util.logging import master_print as print
@@ -99,6 +100,7 @@ def run_one_fold(args, device, fold_i):
     else:
         raise ValueError(f"Unknown dataclass {args.dataclass}")
     split_func = get_split_func(args.dataclass) # set up the split function
+    collate_fn = eval_dataset.get_collate_fn(args.dataclass)
     data_df = pd.read_csv(args.dataset_csv)
     train_splits, val_splits, test_splits = split_func(data_df, fold=fold_i, args=args)
     train_transform, val_transform = create_transforms(**vars(args))
@@ -111,6 +113,15 @@ def run_one_fold(args, device, fold_i):
     dataset_train = datacls(df=data_df, splits=train_splits, processor=train_transform, **vars(args))
     dataset_val = datacls(df=data_df, splits=val_splits, processor=val_transform, **vars(args))
     dataset_test = datacls(df=data_df, splits=test_splits, processor=val_transform, **vars(args))
+
+    assert (set(dataset_val.label_dict.keys()) <= set(dataset_train.label_dict.keys()) and set(dataset_test.label_dict.keys()) <= set(dataset_train.label_dict.keys())) or args.eval or args.predict, f"Validation and test labels must be a subset of training labels but got {dataset_train.label_dict.keys()}, {dataset_val.label_dict.keys()}, {dataset_test.label_dict.keys()}"
+    # for dataset in [dataset_val, dataset_test]:
+    #     dataset.label_dict = dataset_train.label_dict
+    #     dataset.n_classes = dataset_train.n_classes
+    #     dataset.mode = dataset_train.mode
+    # print("Train label_dict:", dataset_train.label_dict)
+    # print("Val label_dict:", dataset_val.label_dict)
+    # print("Test label_dict:", dataset_test.label_dict)
     # for testing
     #debug = dataset_train[150]
 
@@ -136,32 +147,63 @@ def run_one_fold(args, device, fold_i):
     else:
         num_tasks = 1
         global_rank = 0
-        sampler_train = torch.utils.data.RandomSampler(dataset_train)
-        sampler_val = torch.utils.data.SequentialSampler(dataset_val)
+        if not args.predict:
+            sampler_train = torch.utils.data.RandomSampler(dataset_train)
+            sampler_val = torch.utils.data.SequentialSampler(dataset_val)
 
-    data_loader_train = torch.utils.data.DataLoader(
-        dataset_train,
-        sampler=sampler_train,
-        batch_size=args.batch_size,
-        num_workers=args.num_workers,
-        pin_memory=args.pin_mem,
-        # drop_last=True,
-    )
-    data_loader_val = torch.utils.data.DataLoader(
-        dataset_val,
-        sampler=sampler_val,
-        batch_size=args.batch_size,
-        num_workers=args.num_workers,
-        pin_memory=args.pin_mem,
-        drop_last=False,
-    )
-    data_loader_test = torch.utils.data.DataLoader(
-        dataset_test,
-        batch_size=args.batch_size,
-        num_workers=args.num_workers,
-        pin_memory=args.pin_mem,
-        drop_last=False,
-    )
+    if collate_fn is None:
+        if not args.predict and not args.eval:
+            data_loader_train = torch.utils.data.DataLoader(
+                dataset_train,
+                sampler=sampler_train,
+                batch_size=args.batch_size,
+                num_workers=args.num_workers,
+                pin_memory=args.pin_mem,
+                # drop_last=True,
+            )
+            data_loader_val = torch.utils.data.DataLoader(
+                dataset_val,
+                sampler=sampler_val,
+                batch_size=args.batch_size,
+                num_workers=args.num_workers,
+                pin_memory=args.pin_mem,
+                drop_last=False,
+            )
+        data_loader_test = torch.utils.data.DataLoader(
+            dataset_test,
+            batch_size=args.batch_size,
+            num_workers=args.num_workers,
+            pin_memory=args.pin_mem,
+            drop_last=False,
+        )
+    else:
+        if not args.predict and not args.eval:
+            data_loader_train = torch.utils.data.DataLoader(
+                dataset_train,
+                sampler=sampler_train,
+                batch_size=args.batch_size,
+                num_workers=args.num_workers,
+                pin_memory=args.pin_mem,
+                collate_fn=collate_fn,
+                # drop_last=True,
+            )
+            data_loader_val = torch.utils.data.DataLoader(
+                dataset_val,
+                sampler=sampler_val,
+                batch_size=args.batch_size,
+                num_workers=args.num_workers,
+                pin_memory=args.pin_mem,
+                collate_fn=collate_fn,
+                drop_last=False,
+            )
+        data_loader_test = torch.utils.data.DataLoader(
+            dataset_test,
+            batch_size=args.batch_size,
+            num_workers=args.num_workers,
+            pin_memory=args.pin_mem,
+            collate_fn=collate_fn,
+            drop_last=False,
+        )
 
     # ❗❗❗ TODO❗❗❗
     mixup_fn = None
@@ -188,6 +230,12 @@ def run_one_fold(args, device, fold_i):
     n_parameters = sum(p.numel() for p in model.parameters() if p.requires_grad)
     # print("Model = %s" % str(model_without_ddp))
     print("number of params (M): %.4f" % (n_parameters / 1.0e6))
+    
+    if args.predict:
+        predictions = predict(data_loader_test, model, device)
+        predictions = pd.DataFrame(predictions)
+        predictions.to_csv(os.path.join(args.output_dir, "predictions.csv"), index=False)
+        exit(0)
     
     if args.eval:
         test_stats = evaluate(data_loader_test, model, device, n_bootstrap_eval=args.n_bootstrap_eval)

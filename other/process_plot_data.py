@@ -8,16 +8,44 @@ import pandas as pd
 #     "EchoCLIP": ["EchoCLIP"]
 # }
 
+# method_dict = {
+#     "DINOv2+CLIP": ["DINOv2_study"],
+#     "DINOv2+pretrained": ["DINOv2_original"],
+#     "DINOv2_public": ["DINOv2_public"],
+#     "EchoCLIP": ["EchoCLIP"]
+# }
+
 method_dict = {
-    "DINOv2+CLIP": ["DINOv2_transformer", "DINOv2_transformer_original1", "DINOv2_study","DINOv2_study_original1" , "DINOv2_clip"],
-    "EchoCLIP": ["EchoCLIP"],
-    "BioMedCLIP": ["BioMedCLIP"]
+    "DINOv2+CLIP": ["DINOv2_study_original1"],
+    "DINOv2+pretrained": ["DINOv2_original1"],
+    "DINOv2_public": ["DINOv2_public"],
+    "EchoCLIP": ["EchoCLIP"]
 }
 
-# input_dir = "/mnt/hanoverdev/scratch/hanwen/xyliang/Plot/study_only_bootstrap/Results"
-# output_dir = "/mnt/hanoverdev/scratch/hanwen/xyliang/Plot/study_only_bootstrap_processed/Results"
-input_dir = "/mnt/hanoverdev/scratch/hanwen/xyliang/Plot/study_only_zeroshot_bootstrap/Results"
-output_dir = "/mnt/hanoverdev/scratch/hanwen/xyliang/Plot/study_only_zeroshot_bootstrap_processed/Results"
+# method_dict = {
+#     "DINOv2+CLIP": ["DINOv2_study_original1"],
+#     "EchoCLIP": ["EchoCLIP"],
+#     "BioMedCLIP": ["BioMedCLIP"],
+#     "BiomedGPT": ["BiomedGPT"]
+# }
+
+# method_dict = {
+#     "DINOv2+CLIP": ["DINOv2_study"],
+#     "EchoCLIP": ["EchoCLIP"],
+#     "BioMedCLIP": ["BioMedCLIP"],
+#     "BiomedGPT": ["BiomedGPT"]
+# }
+
+input_dir = "/mnt/hanoverdev/scratch/hanwen/xyliang/Plot/surgery_indication_v0_bootstrap/Results"
+output_dir = "/mnt/hanoverdev/scratch/hanwen/xyliang/Plot/surgery_indication_v0_bootstrap_processed/Results"
+# input_dir = "/mnt/hanoverdev/scratch/hanwen/xyliang/Plot/surgery_indication_v0_bootstrap_crossval/Results"
+# output_dir = "/mnt/hanoverdev/scratch/hanwen/xyliang/Plot/surgery_indication_v0_bootstrap_crossval_processed/Results"
+# input_dir = "/mnt/hanoverdev/scratch/hanwen/xyliang/Plot/study_only_v1_bootstrap_crossval/Results"
+# output_dir = "/mnt/hanoverdev/scratch/hanwen/xyliang/Plot/study_only_v1_bootstrap_crossval_processed/Results"
+# input_dir = "/mnt/hanoverdev/scratch/hanwen/xyliang/Plot/study_only_v1_bootstrap/Results"
+# output_dir = "/mnt/hanoverdev/scratch/hanwen/xyliang/Plot/study_only_v1_bootstrap_processed/Results"
+# input_dir = "/mnt/hanoverdev/scratch/hanwen/xyliang/Plot/zeroshot_v1_bootstrap/Results"
+# output_dir = "/mnt/hanoverdev/scratch/hanwen/xyliang/Plot/zeroshot_v1_bootstrap_processed/Results"
 
 if not os.path.exists(output_dir):
     os.makedirs(output_dir)

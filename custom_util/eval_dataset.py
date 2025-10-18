@@ -11,6 +11,7 @@ from open_clip import get_tokenizer
 import open_clip
 print(open_clip.__path__)
 import json
+import torchvision.transforms as T
 
 
 def balance_dataset(img_paths, labels):
@@ -146,8 +147,8 @@ class EchoData(ClassificationDataset3D):
         return vol_tensor
 
 class EchoEmbeddingClassification(Dataset):
-    
-    def __init__(self, data_path, df, splits, processor=None, data_path_field='processed_ct_volume_path', **kwargs):
+
+    def __init__(self, data_path, df, splits, processor=None, data_path_field='path', **kwargs):
         super().__init__()
         self.df_ = df[df[data_path_field].isin(splits[0])].set_index(data_path_field).loc[splits[0]].reset_index()
         self.studies, self.labels = self.df_[data_path_field].to_list(), self.df_['label'].to_list()
@@ -176,9 +177,70 @@ class EchoEmbeddingClassification(Dataset):
         
         return embedding, label
 
+
+class EchoViewClassification(Dataset):
+    
+    def __init__(self, data_path, df, splits, processor=None, data_path_field='path', **kwargs):
+        super().__init__()
+        self.df_ = df[df[data_path_field].isin(splits[0])].set_index(data_path_field).loc[splits[0]].reset_index()
+        self.videos, self.labels = self.df_[data_path_field].to_list(), self.df_['label'].to_list()
+        # append data_path as root dir to volume_paths
+        self.data_dir = data_path
+
+        label_words = list(set(self.labels))
+        label_words.sort()
+        self.n_classes = len(label_words)
+        self.label_dict = {label: i for i, label in enumerate(label_words)}
+        print('Label dict:', self.label_dict)
+        print(f"Number of videos: {len(self.videos)}, Number of labels: {self.n_classes}, Number of embeddings: {len(self.data_dir)}")
+
+        self.mode = 'binary' if self.n_classes == 2 else 'multiclass'
+
+    def __len__(self):
+        return len(self.videos)
+                
+    def __getitem__(self, item):
+        video = self.videos[item]
+        label = self.label_dict[self.labels[item]] if not isinstance(self.labels[item], np.ndarray) else self.labels[item]
+        embedding = torch.load(os.path.join(self.data_dir, video))
+        label = torch.tensor(label).long()
+        
+        return embedding, video
+
+
+class EchoViewClassificationPredict(Dataset):
+    def __init__(self, data_path, df, splits, processor=None, data_path_field='path', **kwargs):
+        super().__init__()
+        self.df_ = df[df[data_path_field].isin(splits[0])].set_index(data_path_field).loc[splits[0]].reset_index()
+        self.videos, self.video_ids = self.df_[data_path_field].to_list(), self.df_['video_id'].to_list()
+        with open(data_path, 'r') as f:
+            self.data = json.load(f) # {"embedding_path": embedding_path, "label_dict" = label_dict, "id_dict": id_dict}
+        self.embedding_dir = self.data.get("embedding_dir", '')
+        self.label_dict = self.data.get("label_dict", {})
+        self.id_to_video = self.data.get("id_to_video", {})
+
+        self.n_classes = len(self.label_dict)
+        self.pred_to_label = [label for label in self.label_dict]
+        print('Label dict:', self.label_dict)
+        print('Pred to Label:', self.pred_to_label)
+        print(f"Number of videos: {len(self.videos)}, Number of labels: {self.n_classes}, Number of embeddings: {len(self.embedding_dir)}")
+        
+        self.mode = 'binary' if self.n_classes == 2 else 'multiclass'
+    
+    def __len__(self):
+        return len(self.videos)
+    
+    def __getitem__(self, item):
+        video = self.videos[item]
+        embedding = torch.load(os.path.join(self.embedding_dir, video))
+        video_id = self.video_ids[item]
+        video_id = torch.tensor(video_id).long()
+        return embedding, video_id
+
+
 class EchoZeroShotClassification(Dataset):
     
-    def __init__(self, data_path, df, splits, processor=None, data_path_field='processed_ct_volume_path', prompt_path='', task_name="LHF", clip_model_name='', **kwargs):
+    def __init__(self, data_path, df, splits, processor=None, data_path_field='path', prompt_path='', task_name="LHF", clip_model_name='', **kwargs):
         super().__init__()
         self.df_ = df[df[data_path_field].isin(splits[0])].set_index(data_path_field).loc[splits[0]].reset_index()
         self.studies, self.labels = self.df_[data_path_field].to_list(), self.df_['label'].to_list()
@@ -212,3 +274,79 @@ class EchoZeroShotClassification(Dataset):
         label = torch.tensor(label).long()
         
         return (embedding, self.text_tokens), label
+
+
+class EchoBiomedGPTClassification(Dataset):
+    
+    def __init__(self, data_path, df, splits, processor=None, data_path_field='path', prompt_path='', task_name="LHF", **kwargs):
+        super().__init__()
+        self.df_ = df[df[data_path_field].isin(splits[0])].set_index(data_path_field).loc[splits[0]].reset_index()
+        self.studies, self.labels = self.df_[data_path_field].to_list(), self.df_['label'].to_list()
+        # append data_path as root dir to volume_paths
+        self.data_dir = data_path
+        
+        from transformers import OFATokenizer
+        self.tokenizer = OFATokenizer.from_pretrained("./BiomedGPT-Base-Pretrained")
+        prompt_dict = json.load(open(prompt_path, 'r'))
+        assert task_name in prompt_dict, f"Task name {task_name} not found in prompt dictionary."
+        prompts = prompt_dict[task_name]
+        print(f"Using prompt: {prompts}")
+        self.input_ids = self.tokenizer([prompts], return_tensors="pt").input_ids
+        self.decoder_input_ids = torch.tensor([[self.tokenizer.bos_token_id]], dtype=torch.long)
+
+        label_words = list(set(self.labels))
+        label_words.sort()
+        self.n_classes = len(label_words)
+        self.label_dict = {label: i for i, label in enumerate(label_words)}
+        print('Label dict:', self.label_dict)
+        print(f"Number of studies: {len(self.studies)}, Number of labels: {self.n_classes}")
+
+        self.mode = 'binary' if self.n_classes == 2 else 'multiclass'
+        
+        self.mean, self.std = [0.5, 0.5, 0.5], [0.5, 0.5, 0.5]
+        self.transform = T.Compose([
+            T.ToPILImage(),
+            T.Resize((480, 480)),
+            T.ToTensor(),
+            T.Normalize(mean=self.mean, std=self.std)
+        ])
+
+    def __len__(self):
+        return len(self.studies)
+                
+    def __getitem__(self, item):
+        study = self.studies[item]
+        label = self.label_dict[self.labels[item]] if not isinstance(self.labels[item], np.ndarray) else self.labels[item]
+        video_list = os.listdir(os.path.join(self.data_dir, study))
+        x = []
+        for i in range(2):
+            video = np.random.choice(video_list)
+            img = np.load(os.path.join(self.data_dir, study, video))
+            # print(f"Loaded image shape: {img.shape}")
+            index = np.random.choice(img.shape[1], size=1)[0]
+            img = img[:, index, :, :] # (C, H, W)
+            img = np.transpose(img, (1, 2, 0)) # (H, W, C)
+            # print(f"Selected frame shape: {img.shape}")
+            
+            # resize to 480 x 480 and normalize
+            img = self.transform(img) # (1, 3, 480, 480)
+            # print(f"Transformed image shape: {img.shape}")
+            x.append(img)
+        
+        
+        label = torch.tensor(label).long()
+        
+        return (x[0], x[1], self.input_ids, self.decoder_input_ids), label
+
+def collate_fn_biomedgpt(batch):
+    xs, labels = zip(*batch)
+    x1 = torch.stack([x[0] for x in xs], dim=0) # (B, 3, 480, 480)
+    x2 = torch.stack([x[1] for x in xs], dim=0) # (B, 3, 480, 480)
+    input_ids = torch.cat([x[2] for x in xs], dim=0) # (B, seq_len) they should have the same seq_len
+    decoder_input_ids = torch.cat([x[3] for x in xs], dim=0) # (B, 1)
+    labels = torch.stack(labels, dim=0)
+    return (x1, x2, input_ids, decoder_input_ids), labels
+
+def get_collate_fn(dataclass):
+    if dataclass == "EchoBiomedGPTClassification":
+        return collate_fn_biomedgpt
