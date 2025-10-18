@@ -203,9 +203,11 @@ class EchoViewClassification(Dataset):
         video = self.videos[item]
         label = self.label_dict[self.labels[item]] if not isinstance(self.labels[item], np.ndarray) else self.labels[item]
         embedding = torch.load(os.path.join(self.data_dir, video))
+        if isinstance(embedding, dict):
+            embedding = embedding['embedding']
         label = torch.tensor(label).long()
         
-        return embedding, video
+        return embedding, label
 
 
 class EchoViewClassificationPredict(Dataset):
@@ -233,6 +235,8 @@ class EchoViewClassificationPredict(Dataset):
     def __getitem__(self, item):
         video = self.videos[item]
         embedding = torch.load(os.path.join(self.embedding_dir, video))
+        if isinstance(embedding, dict):
+            embedding = embedding['embedding']
         video_id = self.video_ids[item]
         video_id = torch.tensor(video_id).long()
         return embedding, video_id

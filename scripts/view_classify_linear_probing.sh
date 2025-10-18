@@ -1,14 +1,16 @@
 # tasks_list=("LHF" "RHF" "DF" "LAD" "RAD" "LVD" "RVD" "AV_regurgitation" "AV_stenosis" "AV_vegetations" "MV_regurgitation" "MV_stenosis" "TV_regurgitation" "TV_regurgitation" "TV_vegetations" "PV_regurgitation" "PV_stenosis" "PV_vegetations" "PE" "LVH" "IMT" "IS")
-tasks_list=("window_test_study" "view_test_study")
+# tasks_list=("window_test_study" "view_test_study")
+tasks_list=("window" "view")
 device=cuda:1
 num_classes=(5 10)
 dataset=view
 for i in ${!tasks_list[@]}; do
     task=${tasks_list[i]}
-    run_name=${task}_classify_1
+    run_name=${task}_classify_resplit
     n_classes=${num_classes[i]}
     python run.py --model linear_classifier  \
-                  --data_path /data/ECHO/dinov2_study_original1_embeddings \
+                  --task_name ${task} \
+                  --data_path /data/ECHO/dinov2_study_original1_embeddings_multi_videos \
                   --data_path_field path \
                   --dataset_csv /mnt/hanoverdev/scratch/hanwen/xyliang/ECHO_dataset_csv/label_view/${task}.csv \
                   --dataclass EchoViewClassification \
@@ -21,7 +23,7 @@ for i in ${!tasks_list[@]}; do
                   --batch_size 512 \
                   --val_time 1 \
                   --epochs 100 \
-                  --warmup_epochs 10 \
+                  --warmup_epochs 5 \
                   --num_workers 12 \
                   --num_classes ${n_classes} \
                   --blr 5e-4 \

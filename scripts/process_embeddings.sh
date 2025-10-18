@@ -24,13 +24,13 @@
 #     --device cuda:0
 
 
-python other/save_dinov2_public_embeddings.py \
-    --embedding_dir /data/ECHO/dinov2_public_embeddings/ \
-    --combined_embedding_path /data/ECHO/dinov2_public_embeddings_mean.pt \
-    --image_size 256 \
-    --batch_size 12 \
-    --mean_embeddings \
-    --device cuda:3
+# python other/save_dinov2_public_embeddings.py \
+#     --embedding_dir /data/ECHO/dinov2_public_embeddings/ \
+#     --combined_embedding_path /data/ECHO/dinov2_public_embeddings_mean.pt \
+#     --image_size 256 \
+#     --batch_size 12 \
+#     --mean_embeddings \
+#     --device cuda:3
 
 # python other/save_dinov2_embeddings.py \
 #     --data_dir /mnt/hanoverdev/data/patxiao/ECHO_numpy/original_size/ \
@@ -66,3 +66,13 @@ python other/save_dinov2_public_embeddings.py \
 #     --image_size 224 \
 #     --batch_size 12 \
 #     --device cuda:3
+
+python other/save_echoclip_embeddings.py \
+    --data_dir /mnt/hanoverdev/data/patxiao/ECHO_numpy/20250126/ \
+    --embedding_dir /data/ECHO/echoclip_embeddings/ \
+    --save_embeddings \
+    --image_size 224 \
+    --batch_size 12 \
+    --start_idx 405000 \
+    --end_idx 535845 \
+    --device cuda:3
