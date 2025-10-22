@@ -73,6 +73,5 @@ python other/save_echoclip_embeddings.py \
     --save_embeddings \
     --image_size 224 \
     --batch_size 12 \
-    --start_idx 405000 \
-    --end_idx 535845 \
+    --combine_embeddings \
     --device cuda:3

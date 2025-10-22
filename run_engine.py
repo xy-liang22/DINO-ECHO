@@ -318,7 +318,19 @@ def bootstarp_metrics(output, target, data_loader, n_bootstrap=1000):
             else:
                 indices = np.random.choice(len(target), len(target), replace=True)
         else:
-            indices = np.random.choice(len(target), len(target), replace=True)
+            unique, counts = torch.unique(target, return_counts=True)
+            # print("Class distribution in bootstrap sampling:")
+            # print(dict(zip(unique.cpu().numpy().tolist(), counts.cpu().numpy().tolist())))
+            # exit(0)
+            # randomly select same number of samples for the classes with too few samples
+            indices = []
+            for unique_class, count in zip(unique, counts):
+                if count <= 15:
+                    class_indices = (target == unique_class).nonzero(as_tuple=True)[0]
+                    indices.extend(np.random.choice(class_indices.cpu(), count.item(), replace=True).tolist())
+            normal_indices = np.random.choice(len(target), len(target) - len(indices), replace=True)
+            indices.extend(normal_indices.tolist())
+            indices = np.array(indices)
 
         output_i = output[indices]
         target_i = target[indices]

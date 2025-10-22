@@ -19,8 +19,10 @@ def get_classification_metrics(prediction: torch.Tensor, ground_truth: torch.Ten
     metrics = {}
     # calculate accuracy
     if mode == 'binary':
-        probs = torch.functional.F.softmax(prediction, dim=1)[:, 1].numpy()
-        prediction = torch.argmax(prediction, dim=1).numpy()
+        # prediction may already be a tensor; ensure it's detached and on CPU before converting to numpy
+        pred_tensor = prediction.detach().cpu() if isinstance(prediction, torch.Tensor) else prediction
+        probs = torch.functional.F.softmax(pred_tensor, dim=1)[:, 1].numpy()
+        prediction = torch.argmax(pred_tensor, dim=1).numpy()
         accuracy = (prediction == labels).sum().item() / len(labels)
         auroc, auprc = roc_auc_score(labels, probs), average_precision_score(labels, probs)
         bacc = balanced_accuracy_score(labels, prediction)
@@ -48,14 +50,16 @@ def get_classification_metrics(prediction: torch.Tensor, ground_truth: torch.Ten
         # calculate the macro bacc in multilabel classification
         acc, bacc, f1, precision = 0, 0, 0, 0
         if mode == 'multiclass':
-            probs = torch.functional.F.softmax(torch.tensor(prediction), dim=1).numpy()
-            prediction = torch.argmax(torch.tensor(prediction), dim=1).numpy()
+            pred_tensor = prediction.detach().cpu() if isinstance(prediction, torch.Tensor) else torch.tensor(prediction)
+            probs = torch.functional.F.softmax(pred_tensor, dim=1).numpy()
+            prediction = torch.argmax(pred_tensor, dim=1).numpy()
             prediction_one_hot = torch.nn.functional.one_hot(torch.tensor(prediction), num_classes=len(label_dict)).numpy()
             labels_one_hot = torch.nn.functional.one_hot(torch.tensor(labels), num_classes=len(label_dict)).numpy()
 
         elif mode == 'multilabel':
-            probs = torch.sigmoid(torch.tensor(prediction)).numpy()
-            prediction = (torch.sigmoid(torch.tensor(prediction)) > 0.5).numpy()
+            pred_tensor = prediction.detach().cpu() if isinstance(prediction, torch.Tensor) else torch.tensor(prediction)
+            probs = torch.sigmoid(pred_tensor).numpy()
+            prediction = (torch.sigmoid(pred_tensor) > 0.5).numpy()
         else:
             raise ValueError(f"Unknown metric calculation mode {mode}")
         
@@ -69,7 +73,11 @@ def get_classification_metrics(prediction: torch.Tensor, ground_truth: torch.Ten
         f1 /= len(label_dict)
         precision /= len(label_dict)
         # calculate micro AUROC
-        print(labels.shape, labels.max(), labels.min(), probs.shape)
+        # print(labels.shape, labels.max(), labels.min(), probs.shape)
+        # # count number of each label
+        # print("Label distribution:")
+        # for idx, label in enumerate(label_dict):
+        #     print(f"{label}: {(labels == idx).sum()}")
         micro_auroc = roc_auc_score(labels, probs, average='micro', multi_class='ovr')
         # calculate macro AUROC
         macro_auroc = roc_auc_score(labels, probs, average='macro', multi_class='ovr')

@@ -36,8 +36,10 @@ method_dict = {
 #     "BiomedGPT": ["BiomedGPT"]
 # }
 
-input_dir = "/mnt/hanoverdev/scratch/hanwen/xyliang/Plot/surgery_indication_v0_bootstrap/Results"
-output_dir = "/mnt/hanoverdev/scratch/hanwen/xyliang/Plot/surgery_indication_v0_bootstrap_processed/Results"
+input_dir = "/mnt/hanoverdev/scratch/hanwen/xyliang/Plot/view_bootstrap/Results"
+output_dir = "/mnt/hanoverdev/scratch/hanwen/xyliang/Plot/view_bootstrap_processed/Results"
+# input_dir = "/mnt/hanoverdev/scratch/hanwen/xyliang/Plot/surgery_indication_v0_bootstrap/Results"
+# output_dir = "/mnt/hanoverdev/scratch/hanwen/xyliang/Plot/surgery_indication_v0_bootstrap_processed/Results"
 # input_dir = "/mnt/hanoverdev/scratch/hanwen/xyliang/Plot/surgery_indication_v0_bootstrap_crossval/Results"
 # output_dir = "/mnt/hanoverdev/scratch/hanwen/xyliang/Plot/surgery_indication_v0_bootstrap_crossval_processed/Results"
 # input_dir = "/mnt/hanoverdev/scratch/hanwen/xyliang/Plot/study_only_v1_bootstrap_crossval/Results"

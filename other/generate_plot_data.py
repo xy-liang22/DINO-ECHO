@@ -3,13 +3,14 @@ import os
 
 # dataset_name = "zeroshot_v1"
 # dataset_name = "study_only_task_selected"
-dataset_name = "surgery_indication_v0"
+dataset_name = "view"
 
 # result_dir = f"/mnt/hanoverdev/scratch/hanwen/xyliang/ECHO_results_clip_{dataset_name}/"
              # "/mnt/hanoverdev/scratch/hanwen/xyliang/ECHO_results_clip_mini_study_only/",
              # "/mnt/hanoverdev/scratch/hanwen/xyliang/ECHO_results_clip_mini_new_study_only/",
 # result_dir = "/mnt/hanoverdev/scratch/hanwen/xyliang/Zero_shot_result/"
-result_dir = "/mnt/hanoverdev/scratch/hanwen/xyliang/ECHO_results_clip_study_only/"
+# result_dir = "/mnt/hanoverdev/scratch/hanwen/xyliang/ECHO_results_clip_study_only/"
+result_dir = "/mnt/hanoverdev/scratch/hanwen/xyliang/ECHO_results_view/"
 # result_dirs = ["/mnt/hanoverdev/scratch/hanwen/xyliang/ECHO_results_clip_mini/"]
 
 output_dir = f"/mnt/hanoverdev/scratch/hanwen/xyliang/Plot/{dataset_name}_bootstrap/Results"
@@ -17,7 +18,8 @@ output_dir = f"/mnt/hanoverdev/scratch/hanwen/xyliang/Plot/{dataset_name}_bootst
 severity = False
 no_freeze = False
 # key_word = "epoch100_new"
-key_word = "surgery_indication"
+key_word = "resplit"
+split_word = "_resplit"
 
 def get_model_name(run):
     if "echoclip" in run:
@@ -78,7 +80,7 @@ for result_file in result_files:
     # Check if "AUROC" column exists
     if "AUROC" in df.columns:
         run = result_file.split("/")[-2]  # Add the run name to the row
-        task = run.split("_clip")[0] if "_clip" in run else run.split("_mini")[0]
+        task = run.split(split_word)[0] if split_word in run else run.split("_mini")[0]
         if task not in results:
             results[task] = {}
         
