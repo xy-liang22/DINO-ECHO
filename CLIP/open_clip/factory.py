@@ -17,7 +17,7 @@ from .coca_model import CoCa
 from .loss import ClipLoss, DistillClipLoss, CoCaLoss, SigLipLoss
 from .pretrained import is_pretrained_cfg, get_pretrained_cfg, download_pretrained,\
     list_pretrained_tags_by_model, download_pretrained_from_hf
-from .transform import image_transform_v2, AugmentationCfg, PreprocessCfg, merge_preprocess_dict, merge_preprocess_kwargs
+from .transform import image_transform_v2, video_transform, video_resize, AugmentationCfg, PreprocessCfg, merge_preprocess_dict, merge_preprocess_kwargs
 from .tokenizer import HFTokenizer, SimpleTokenizer, SigLipTokenizer, DEFAULT_CONTEXT_LENGTH
 
 HF_HUB_PREFIX = 'hf-hub:'
@@ -397,7 +397,8 @@ def create_model(
 
         if checkpoint_path:
             logging.info(f'Loading pretrained {model_name} weights ({pretrained}).')
-            load_checkpoint(model, checkpoint_path, weights_only=load_weights_only)
+            msg = load_checkpoint(model, checkpoint_path, weights_only=load_weights_only)
+            print(f'❗❗ Loading results: {msg.missing_keys} ❗❗\n')
         else:
             error_str = (
                 f'Pretrained weights ({pretrained}) not found for model {model_name}.'
@@ -483,6 +484,10 @@ def create_model_and_transforms(
         image_std: Optional[Tuple[float, ...]] = None,
         image_interpolation: Optional[str] = None,
         image_resize_mode: Optional[str] = None,  # only effective for inference
+        video_max_frames: Optional[int] = None,
+        video_num_frames: Optional[int] = None,
+        video_interpolation: Optional[str] = None,
+        video_frames_ratio: Optional[float] = None,
         aug_cfg: Optional[Union[Dict[str, Any], AugmentationCfg]] = None,
         pretrained_image: bool = False,
         pretrained_hf: bool = True,
@@ -497,6 +502,10 @@ def create_model_and_transforms(
         std=image_std,
         interpolation=image_interpolation,
         resize_mode=image_resize_mode,
+        max_frames=video_max_frames,
+        num_frames=video_num_frames,
+        video_interpolation=video_interpolation,
+        frames_ratio=video_frames_ratio,
     )
 
     model = create_model(
@@ -517,18 +526,28 @@ def create_model_and_transforms(
         load_weights_only=load_weights_only,
         **model_kwargs,
     )
+    
+    if "num_frames" in model.visual.preprocess_cfg and "max_frames" in model.visual.preprocess_cfg and "video_interpolation" in model.visual.preprocess_cfg and model.visual.preprocess_cfg["num_frames"] is not None:
+    # if "DINOv2" in model_name and model.visual.preprocess_cfg.get("num_frames", None) is not None:
+        preprocess_train, preprocess_val = video_transform(PreprocessCfg(**model.visual.preprocess_cfg))
+    
+    elif "num_frames" in model.visual.preprocess_cfg and "max_frames" in model.visual.preprocess_cfg and "video_interpolation" in model.visual.preprocess_cfg and model.visual.preprocess_cfg["num_frames"] is None:
+    # elif "DINOv2" in model_name and  model.visual.preprocess_cfg.get("num_frames", None) is None:
+        assert model.visual.preprocess_cfg["frames_ratio"] is not None, "num_frames is None, but frames_ratio is also None. Please set frames_ratio to a valid value."
+        preprocess_train, preprocess_val = video_resize(PreprocessCfg(**model.visual.preprocess_cfg))
+        
+    else:
+        pp_cfg = PreprocessCfg(**model.visual.preprocess_cfg)
 
-    pp_cfg = PreprocessCfg(**model.visual.preprocess_cfg)
-
-    preprocess_train = image_transform_v2(
-        pp_cfg,
-        is_train=True,
-        aug_cfg=aug_cfg,
-    )
-    preprocess_val = image_transform_v2(
-        pp_cfg,
-        is_train=False,
-    )
+        preprocess_train = image_transform_v2(
+            pp_cfg,
+            is_train=True,
+            aug_cfg=aug_cfg,
+        )
+        preprocess_val = image_transform_v2(
+            pp_cfg,
+            is_train=False,
+        )
 
     return model, preprocess_train, preprocess_val
 

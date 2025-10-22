@@ -1,0 +1,19 @@
+{
+    "embed_dim": 1024,
+    "vision_cfg": {
+        "dinov2_cfg": "/home/xuhw/xyliang/research-projects/open_clip/src/open_clip/dinov2_modules/configs/train/vitl16_lbsz96_500ep_resume_from_general.yaml",
+        "dinov2_pretrained": "/mnt/hanoverdev/scratch/hanwen/exp/echofound/pretrain_dinov2/20250529_vitl16_lbsz96_gbsz384_500ep_resume_general/eval/training_399999/teacher_checkpoint.pth",
+        "image_size": 224,
+        "width": 1024,
+        "patch_size": 14,
+        "is_study": true,
+        "proj": true,
+        "use_transformer": true
+    },
+    "text_cfg": {
+        "hf_model_name": "microsoft/BiomedNLP-BiomedBERT-base-uncased-abstract",
+        "hf_tokenizer_name": "microsoft/BiomedNLP-BiomedBERT-base-uncased-abstract",
+        "hf_pooler_type": "mean_pooler",
+        "context_length": 512
+    }
+}

@@ -61,7 +61,7 @@ def parse_args(args):
     )
     parser.add_argument(
         "--dataset-type",
-        choices=["webdataset", "csv", "synthetic", "auto"],
+        choices=["webdataset", "csv", "synthetic", "custom", "custom_study", "custom_study_frame", "auto"],
         default="auto",
         help="Which type of dataset to process."
     )
@@ -108,7 +108,7 @@ def parse_args(args):
         help="Override system default cache path for model & tokenizer file downloads.",
     )
     parser.add_argument(
-        "--logs",
+        "--logs-dir",
         type=str,
         default="./logs/",
         help="Where to store tensorboard logs. Use None to avoid storing logs.",
@@ -254,6 +254,31 @@ def parse_args(args):
         '--image-resize-mode',
         default=None, type=str, choices=['shortest', 'longest', 'squash'],
         help="Override default image resize (& crop) mode during inference"
+    )
+    parser.add_argument(
+        '--video-max-frames',
+        type=int, default=None,
+        help="Override default max number of frames padding or clipping from video. Default: None (non-video data)."
+    )
+    parser.add_argument(
+        '--video-num-frames',
+        type=int, default=None,
+        help="Override default number of frames to sample from video. Default: None (non-video data)."
+    )
+    parser.add_argument(
+        '--video-interpolation',
+        default=None, type=str, choices=['bicubic', 'bilinear', 'random'],
+        help="Override default video resize interpolation"
+    )
+    parser.add_argument(
+        '--video-frames-ratio',
+        type=float, default=None,
+        help="Override default video frames ratio. Default: None (non-video data)."
+    )
+    parser.add_argument(
+        '--num-videos',
+        default=1, type=int,
+        help="Override default number of videos to sample from video data. Default: None (non-video data)."
     )
     parser.add_argument('--aug-cfg', nargs='*', default={}, action=ParseKwargs)
     parser.add_argument(

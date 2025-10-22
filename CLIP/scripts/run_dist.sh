@@ -1,0 +1,32 @@
+export WORLD_SIZE=3
+export CUDA_VISIBLE_DEVICES=0,1,2
+torchrun --nproc_per_node 3 -m open_clip_train.main \
+    --logs-dir /mnt/hanoverdev/scratch/hanwen/xyliang/CLIP_logs \
+    --wandb-project-name "DINOv2_CLIP" \
+    --name "epoch_30_lr_1e-5_BiomedBERT_dist_siglip"\
+    --save-frequency 1 \
+    --accum-freq 8 \
+    --log-every-n-steps 4 \
+    --save-most-recent \
+    --report-to wandb \
+    --dataset-type custom \
+    --train-data="/mnt/hanoverdev/scratch/hanwen/xyliang/CLIP_dataset_csv/train_report.csv"  \
+    --val-data="//mnt/hanoverdev/scratch/hanwen/xyliang/CLIP_dataset_csv/val_report.csv"  \
+    --csv-separator "," \
+    --csv-img-key video_path \
+    --csv-caption-key report \
+    --warmup 221 \
+    --batch-size=4 \
+    --lr=1e-5 \
+    --wd=0.1 \
+    --epochs=30 \
+    --workers=8 \
+    --video-max-frames 128 \
+    --video-num-frames 64 \
+    --video-interpolation="bilinear" \
+    --model DINOv2_BiomedBERT \
+    --dist-backend nccl \
+    --gather-with-grad \
+    --local-loss \
+    --siglip \
+    --loss-dist-impl gather

@@ -25,6 +25,9 @@ try:
 except ImportError:
     hvd = None
 
+import monai.transforms as monai_transforms
+
+
 
 class CsvDataset(Dataset):
     def __init__(self, input_filename, transforms, img_key, caption_key, sep="\t", tokenizer=None):
@@ -523,6 +526,316 @@ def get_synthetic_dataset(args, preprocess_fn, is_train, epoch=0, tokenizer=None
     return DataInfo(dataloader, sampler)
 
 
+class CustomDataset(Dataset):
+    def __init__(self, input_filename, transforms, video_key, report_key, sep=",", tokenizer=None):
+        logging.debug(f'Loading custom csv data from {input_filename}.')
+        df = pd.read_csv(input_filename, sep=sep)
+
+        self.video_paths = df[video_key].tolist()
+        self.reports = df[report_key].tolist()
+        self.transforms = transforms
+        logging.debug('Done loading data.')
+
+        self.tokenize = tokenizer
+        
+    def norm_vol_orientation(self, vol_tensor):
+        vol_tensor = vol_tensor.permute(0, 2, 1, 3).flip(2)
+        return vol_tensor
+    
+    def img_to_tensor(self, img):
+        """
+        out: C x T x W x H
+        """
+        if len(img.shape) == 3:
+            return torch.tensor(img).unsqueeze(0).float() #.permute(0, 3, 1, 2)
+        #print(torch.tensor(img).float().permute(0, 3, 1, 2).shape)
+        #exit(0)
+        return torch.tensor(img).float() #.permute(0, 3, 1, 2)
+
+    def __len__(self):
+        return len(self.video_paths)
+
+    def __getitem__(self, idx):
+        img = np.load(self.video_paths[idx])
+        vol_tensor = self.img_to_tensor(img)
+        if self.transforms is not None:
+            vol_tensor = self.transforms({"pixel_values": vol_tensor})["pixel_values"]
+            
+        texts = self.tokenize([str(self.reports[idx])])[0]
+        return vol_tensor, texts
+
+
+class CustomStudyDataset(Dataset):
+    def __init__(self, input_filename, transforms, study_key, report_key, sep=",", tokenizer=None, num_videos=1, max_frames=512, frames_ratio=0.5, interpolation="bilinear"):
+        logging.debug(f'Loading custom study json data from {input_filename}.')
+        with open(input_filename, 'r') as f:
+            data = json.load(f)
+            report_data_path = data["report_data"]
+            video_dict_path = data["video_data"]
+        df = pd.read_csv(report_data_path, sep=sep)
+        self.studies = df[study_key].tolist()
+        self.reports = df[report_key].tolist()
+        with open(video_dict_path, 'r') as f:
+            self.video_dict = json.load(f)
+        self.transforms = transforms
+        logging.debug('Done loading data.')
+        
+        self.tokenize = tokenizer
+        self.num_videos = num_videos
+        self.max_frames = max_frames
+        self.frames_ratio = frames_ratio
+        self.interpolation = interpolation
+    
+    def process_video(self, video_tensor):
+        """
+        Process the video tensor to pad it to square shape and reduce its frames to frames_ratio of frames
+        """
+        C, T, W, H = video_tensor.shape
+        
+        # new_vol_tensor = torch.zeros(C, T, max(W, H), max(W, H))
+        # pad_w = (max(W, H) - W) // 2
+        # pad_h = (max(W, H) - H) // 2
+        # new_vol_tensor[:, :, pad_w:pad_w + W, pad_h:pad_h + H] = video_tensor
+        
+        new_video_tensor = monai_transforms.Resize(spatial_size=(max(int(T * self.frames_ratio), 1), -1, -1), mode=self.interpolation)(video_tensor)
+        if new_video_tensor.shape[1] > self.max_frames / self.num_videos * 2:
+            indices = np.random.choice(new_video_tensor.shape[1], int(self.max_frames / self.num_videos * 2), replace=False)
+            indices = sorted(indices)  # Sort indices to maintain order
+            new_video_tensor = new_video_tensor[:, indices, :, :]
+        return new_video_tensor
+    
+    def __len__(self):
+        return len(self.studies)
+    
+    def __getitem__(self, idx):
+        study = self.studies[idx]
+        report = self.reports[idx]
+        video_paths = self.video_dict[study]
+        
+        # Load videos
+        video_tensors = []
+        if len(video_paths) > self.num_videos:
+            # Randomly sample num_videos from video_paths
+            indices = np.random.choice(len(video_paths), self.num_videos, replace=False)
+            indices = sorted(indices)  # Sort indices to maintain order
+            video_paths = [video_paths[i] for i in indices]
+            
+        for video_path in video_paths:
+            video = np.load(video_path)
+            vol_tensor = torch.tensor(video).float()
+            vol_tensor = self.process_video(vol_tensor)  # Process the video tensor
+            if self.transforms is not None:
+                vol_tensor = self.transforms({"pixel_values": vol_tensor})["pixel_values"] # [C, T, W, H]
+            video_tensors.append(vol_tensor)
+            video_tensors.append(torch.zeros(3, 1, *vol_tensor.shape[2:]))  # Add a zero tensor for separation
+        
+        video_tensor = torch.cat(video_tensors, dim=1) # Shape: (C, T_sum, W, H)
+        if video_tensor.shape[1] > self.max_frames:
+            video_tensor = video_tensor[:, :self.max_frames, :, :]
+        
+        text = self.tokenize([str(report)])[0]
+        return {
+            "video": video_tensor,  # Shape: (C, T, W, H)
+            "text": text
+        }
+
+class CustomStudyFrameDataset(CustomStudyDataset):
+    def __init__(self, input_filename, transforms, study_key, report_key, sep=",", tokenizer=None, num_videos=1, max_frames=512, frames_ratio=0.5, interpolation="bilinear"):
+        super().__init__(input_filename, transforms, study_key, report_key, sep, tokenizer, num_videos, max_frames, frames_ratio, interpolation)
+    
+    def __getitem__(self, idx):
+        study = self.studies[idx]
+        report = self.reports[idx]
+        video_paths = self.video_dict[study]
+        video_path = random.choice(video_paths)
+        
+        video = np.load(video_path)
+        vol_tensor = torch.tensor(video).float()
+        vol_tensor = self.process_video(vol_tensor)  # Process the video tensor
+        if self.transforms is not None:
+            vol_tensor = self.transforms({"pixel_values": vol_tensor})["pixel_values"]
+        frame_idx = random.randint(0, vol_tensor.shape[1] - 1)
+        
+        image = vol_tensor[:, frame_idx, :, :]  # Select a random frame from the video tensor
+        text = self.tokenize([str(report)])[0]
+    
+        return image, text
+
+
+
+def get_custom_dataset(args, preprocess_fn, is_train, epoch=0, tokenizer=None): 
+    input_filename = args.train_data if is_train else args.val_data
+    assert input_filename
+    dataset = CustomDataset(
+        input_filename,
+        preprocess_fn,
+        video_key=args.csv_img_key,
+        report_key=args.csv_caption_key,
+        sep=args.csv_separator,
+        tokenizer=tokenizer
+    )
+    num_samples = len(dataset)
+    sampler = DistributedSampler(dataset) if args.distributed and is_train else None
+    shuffle = is_train and sampler is None
+
+    dataloader = DataLoader(
+        dataset,
+        batch_size=args.batch_size,
+        shuffle=shuffle,
+        num_workers=args.workers,
+        pin_memory=True,
+        sampler=sampler,
+        drop_last=is_train,
+    )
+    dataloader.num_samples = num_samples
+    dataloader.num_batches = len(dataloader)
+
+    return DataInfo(dataloader, sampler)
+
+
+def get_custom_study_dataset(args, preprocess_fn, is_train, epoch=0, tokenizer=None):
+    input_filename = args.train_data if is_train else args.val_data
+    assert input_filename
+    dataset = CustomStudyDataset(
+        input_filename,
+        preprocess_fn,
+        study_key=args.csv_img_key,
+        report_key=args.csv_caption_key,
+        sep=args.csv_separator,
+        tokenizer=tokenizer,
+        num_videos=args.num_videos,
+        max_frames=args.video_max_frames,
+        frames_ratio=args.video_frames_ratio,
+        interpolation=args.video_interpolation
+    )
+    num_samples = len(dataset)
+    sampler = DistributedSampler(dataset) if args.distributed and is_train else None
+    shuffle = is_train and sampler is None
+    
+    def collate_fn_padding(batch):
+        """Custom collate function to handle variable length video tensors and return with a mask."""
+        max_length = max(data['video'].shape[1] for data in batch)
+        channels = batch[0]['video'].shape[0]
+        # Pad videos to the maximum length in the batch
+        padded_videos = []
+        masks = []
+        texts = []
+        for data in batch:
+            video = data['video']
+            padded_tensor = torch.zeros((channels, max_length, *video.shape[2:]), dtype=video.dtype)
+            padded_tensor[:, :video.shape[1]] = video
+            padded_videos.append(padded_tensor)
+            masks.append(torch.tensor([1] * video.shape[1] + [0] * (max_length - video.shape[1]), dtype=torch.bool))
+            texts.append(data['text'])
+        padded_videos = torch.stack(padded_videos, dim=0)  # Shape: (B, C, T, W, H)
+        masks = torch.stack(masks, dim=0)  # Shape: (B, max_length)
+        texts = torch.stack(texts, dim=0)
+        assert len(padded_videos.shape) == 5, f"Expected padded_videos to have 5 dimensions, got {len(padded_videos.shape)}"
+        return (padded_videos, masks), texts
+        
+
+    dataloader = DataLoader(
+        dataset,
+        batch_size=args.batch_size,
+        shuffle=shuffle,
+        num_workers=args.workers,
+        pin_memory=True,
+        sampler=sampler,
+        drop_last=is_train,
+        collate_fn=collate_fn_padding,  # Use custom collate function
+    )
+    dataloader.num_samples = num_samples
+    dataloader.num_batches = len(dataloader)
+
+    return DataInfo(dataloader, sampler)
+
+def get_custom_study_no_mask_dataset(args, preprocess_fn, is_train, epoch=0, tokenizer=None):
+    input_filename = args.train_data if is_train else args.val_data
+    assert input_filename
+    dataset = CustomStudyDataset(
+        input_filename,
+        preprocess_fn,
+        study_key=args.csv_img_key,
+        report_key=args.csv_caption_key,
+        sep=args.csv_separator,
+        tokenizer=tokenizer,
+        num_videos=args.num_videos,
+        max_frames=args.video_max_frames,
+        frames_ratio=args.video_frames_ratio,
+        interpolation=args.video_interpolation
+    )
+    num_samples = len(dataset)
+    sampler = DistributedSampler(dataset) if args.distributed and is_train else None
+    shuffle = is_train and sampler is None
+    
+    def collate_fn_padding(batch):
+        """Custom collate function to handle variable length video tensors and return with a mask."""
+        max_length = max(data['video'].shape[1] for data in batch)
+        channels = batch[0]['video'].shape[0]
+        # Pad videos to the maximum length in the batch
+        padded_videos = []
+        texts = []
+        for data in batch:
+            video = data['video']
+            padded_tensor = torch.zeros((channels, max_length, *video.shape[2:]), dtype=video.dtype)
+            padded_tensor[:, :video.shape[1]] = video
+            padded_videos.append(padded_tensor)
+            texts.append(data['text'])
+        padded_videos = torch.stack(padded_videos, dim=0)  # Shape: (B, C, T, W, H)
+        texts = torch.stack(texts, dim=0)
+        assert len(padded_videos.shape) == 5, f"Expected padded_videos to have 5 dimensions, got {len(padded_videos.shape)}"
+        return padded_videos, texts
+        
+
+    dataloader = DataLoader(
+        dataset,
+        batch_size=args.batch_size,
+        shuffle=shuffle,
+        num_workers=args.workers,
+        pin_memory=True,
+        sampler=sampler,
+        drop_last=is_train,
+        collate_fn=collate_fn_padding,  # Use custom collate function
+    )
+    dataloader.num_samples = num_samples
+    dataloader.num_batches = len(dataloader)
+
+    return DataInfo(dataloader, sampler)
+
+def get_custom_study_frame_dataset(args, preprocess_fn, is_train, epoch=0, tokenizer=None):
+    input_filename = args.train_data if is_train else args.val_data
+    assert input_filename
+    dataset = CustomStudyFrameDataset(
+        input_filename,
+        preprocess_fn,
+        study_key=args.csv_img_key,
+        report_key=args.csv_caption_key,
+        sep=args.csv_separator,
+        tokenizer=tokenizer,
+        num_videos=args.num_videos,
+        max_frames=args.video_max_frames,
+        frames_ratio=args.video_frames_ratio,
+        interpolation=args.video_interpolation
+    )
+    num_samples = len(dataset)
+    sampler = DistributedSampler(dataset) if args.distributed and is_train else None
+    shuffle = is_train and sampler is None
+
+    dataloader = DataLoader(
+        dataset,
+        batch_size=args.batch_size,
+        shuffle=shuffle,
+        num_workers=args.workers,
+        pin_memory=True,
+        sampler=sampler,
+        drop_last=is_train
+    )
+    dataloader.num_samples = num_samples
+    dataloader.num_batches = len(dataloader)
+
+    return DataInfo(dataloader, sampler)
+
+
 def get_dataset_fn(data_path, dataset_type):
     if dataset_type == "webdataset":
         return get_wds_dataset
@@ -530,6 +843,12 @@ def get_dataset_fn(data_path, dataset_type):
         return get_csv_dataset
     elif dataset_type == "synthetic":
         return get_synthetic_dataset
+    elif dataset_type == "custom":
+        return get_custom_dataset
+    elif dataset_type == "custom_study":
+        return get_custom_study_dataset
+    elif dataset_type == "custom_study_frame":
+        return get_custom_study_frame_dataset
     elif dataset_type == "auto":
         ext = data_path.split('.')[-1]
         if ext in ['csv', 'tsv']:

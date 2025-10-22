@@ -11,6 +11,7 @@ from torchvision.transforms import Normalize, Compose, RandomResizedCrop, Interp
 
 from .constants import OPENAI_DATASET_MEAN, OPENAI_DATASET_STD
 from .utils import to_2tuple
+import monai.transforms as monai_transforms
 
 
 @dataclass
@@ -22,6 +23,11 @@ class PreprocessCfg:
     interpolation: str = 'bicubic'
     resize_mode: str = 'shortest'
     fill_color: int = 0
+    
+    num_frames: Optional[int] = None
+    max_frames: Optional[int] = None
+    video_interpolation: Optional[str] = None
+    frames_ratio: Optional[float] = None
 
     def __post_init__(self):
         assert self.mode in ('RGB',)
@@ -405,3 +411,46 @@ def image_transform_v2(
         fill_color=cfg.fill_color,
         aug_cfg=aug_cfg,
     )
+
+def video_transform(cfg: PreprocessCfg):
+    train_transform = monai_transforms.Compose(
+        [   
+            monai_transforms.ResizeWithPadOrCropd(
+                keys=["pixel_values"], spatial_size=(cfg.max_frames, -1, -1)
+            ),
+            monai_transforms.Resized(
+                keys=["pixel_values"], spatial_size=(cfg.num_frames, cfg.size, cfg.size), mode=(cfg.video_interpolation)
+            ),
+        ]
+    )
+    
+    val_transform = monai_transforms.Compose(
+        [   
+            monai_transforms.ResizeWithPadOrCropd(
+                keys=["pixel_values"], spatial_size=(cfg.max_frames, -1, -1)
+            ),
+            monai_transforms.Resized(
+                keys=["pixel_values"], spatial_size=(cfg.num_frames, cfg.size, cfg.size), mode=(cfg.video_interpolation)
+            ),
+        ]
+    )
+
+    return train_transform, val_transform
+
+def video_resize(cfg: PreprocessCfg):
+    if isinstance(cfg.size, (list, tuple)):
+        assert len(cfg.size) == 2, "Size must be a single integer or a tuple of two integers (height, width)."
+        train_transform = monai_transforms.Resized(
+            keys=["pixel_values"], spatial_size=(-1, cfg.size[0], cfg.size[1]), mode=(cfg.video_interpolation)
+        )
+        val_transform = monai_transforms.Resized(
+            keys=["pixel_values"], spatial_size=(-1, cfg.size[0], cfg.size[1]), mode=(cfg.video_interpolation)
+        )
+    else:
+        train_transform = monai_transforms.Resized(keys=["pixel_values"], spatial_size=(-1, cfg.size, cfg.size), mode=(cfg.video_interpolation))
+        
+        val_transform = monai_transforms.Resized(keys=["pixel_values"], spatial_size=(-1, cfg.size, cfg.size), mode=(cfg.video_interpolation))
+    
+    print(f"❗❗❗ Using video resize transform with size: {cfg.size}, interpolation: {cfg.video_interpolation}")
+
+    return train_transform, val_transform

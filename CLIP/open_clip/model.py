@@ -20,6 +20,8 @@ from .modified_resnet import ModifiedResNet
 from .timm_model import TimmModel
 from .transformer import LayerNormFp32, LayerNorm, QuickGELU, Attention, VisionTransformer, TextTransformer,\
     text_global_pool
+from .dinov2 import DINOv2
+# from .echoclip import EchoCLIPVisual
 from .utils import to_2tuple
 
 
@@ -53,6 +55,13 @@ class CLIPVisionCfg:
     timm_drop: float = 0.  # head dropout
     timm_drop_path: Optional[float] = None  # backbone stochastic depth
 
+    dinov2_cfg: Optional[str] = None  # path to DINOv2 config file
+    dinov2_pretrained: Optional[str] = None  # path to DINOv2 pretrained weights
+    is_study: Optional[bool] = False # whether to use DINOv2 study model
+    use_transformer: Optional[bool] = False  # whether to use transformer for DINOv2 study model
+    proj: Optional[bool] = True  # whether to use projection for DINOv2 study model
+    n_heads: int = 8  # number of heads for DINOv2 study model transformer
+    transformer_layers: int = 4  # number of transformer layers for DINOv2 study model
 
 @dataclass
 class CLIPTextCfg:
@@ -116,7 +125,20 @@ def _build_vision_tower(
     # NOTE: timm models always use native GELU regardless of quick_gelu flag.
     act_layer = QuickGELU if quick_gelu else nn.GELU
 
-    if vision_cfg.timm_model_name:
+    if vision_cfg.dinov2_cfg is not None:
+        visual = DINOv2(
+            config_path=vision_cfg.dinov2_cfg,
+            image_size=vision_cfg.image_size,
+            pretrained=vision_cfg.dinov2_pretrained,
+            embed_dim=embed_dim,
+            is_study= vision_cfg.is_study,
+            use_transformer=vision_cfg.use_transformer,
+            width=vision_cfg.width,
+            n_heads=vision_cfg.n_heads,
+            transformer_layers= vision_cfg.transformer_layers,
+            proj=vision_cfg.proj,
+        )
+    elif vision_cfg.timm_model_name:
         visual = TimmModel(
             vision_cfg.timm_model_name,
             pretrained=vision_cfg.timm_model_pretrained,

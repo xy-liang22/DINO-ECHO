@@ -1,0 +1,26 @@
+python -m open_clip_train.main \
+    --logs-dir /mnt/hanoverdev/scratch/hanwen/xyliang/CLIP_logs \
+    --wandb-project-name "DINOv2_CLIP" \
+    --name "epoch_30_lr_3e-6_BiomedBERT_siglip"\
+    --save-frequency 1 \
+    --accum-freq 24 \
+    --log-every-n-steps 4 \
+    --save-most-recent \
+    --report-to wandb \
+    --dataset-type custommil \
+    --train-data="/mnt/hanoverdev/scratch/hanwen/xyliang/CLIP_dataset_csv/train_report.csv"  \
+    --val-data="/mnt/hanoverdev/scratch/hanwen/xyliang/CLIP_dataset_csv/val_report.csv"  \
+    --csv-separator "," \
+    --csv-img-key study \
+    --csv-caption-key report \
+    --warmup 221 \
+    --batch-size=4 \
+    --lr=3e-6 \
+    --wd=0.1 \
+    --epochs=30 \
+    --workers=8 \
+    --video-max-frames 128 \
+    --video-num-frames 64 \
+    --video-interpolation="bilinear" \
+    --model DINOv2_BiomedBERT \
+    --siglip

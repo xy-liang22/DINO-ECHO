@@ -1,1 +1,1 @@
-Files in this directory are cloned and changed from [open_clip repo](https://github.com/mlfoundations/open_clip/tree/main).
+Files in this directory are cloned and changed from [open_clip/src](https://github.com/mlfoundations/open_clip/tree/main/src).

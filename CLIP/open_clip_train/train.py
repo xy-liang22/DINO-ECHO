@@ -90,7 +90,12 @@ def train_one_epoch(model, data, loss, epoch, optimizer, scaler, scheduler, dist
             scheduler(step)
 
         images, texts = batch
-        images = images.to(device=device, dtype=input_dtype, non_blocking=True)
+        if isinstance(images, (list, tuple)):
+            assert len(images) == 2
+            images[0] = images[0].to(device=device, dtype=input_dtype, non_blocking=True)
+            images[1] = images[1].to(device=device, dtype=input_dtype, non_blocking=True)
+        else:
+            images = images.to(device=device, dtype=input_dtype, non_blocking=True)
         texts = texts.to(device=device, non_blocking=True)
 
         data_time_m.update(time.time() - end)
@@ -192,7 +197,10 @@ def train_one_epoch(model, data, loss, epoch, optimizer, scaler, scheduler, dist
         end = time.time()
         batch_count = i_accum + 1
         if is_master(args) and (i_accum % args.log_every_n_steps == 0 or batch_count == num_batches_per_epoch):
-            batch_size = len(images)
+            if isinstance(images, (list, tuple)):
+                batch_size = images[0].shape[0]
+            else:
+                batch_size = len(images)
             num_samples = batch_count * batch_size * args.accum_freq * args.world_size
             samples_per_epoch = dataloader.num_samples
             percent_complete = 100.0 * batch_count / num_batches_per_epoch
@@ -274,12 +282,39 @@ def evaluate(model, data, epoch, args, tb_writer=None, tokenizer=None):
         with torch.inference_mode():
             for i, batch in enumerate(dataloader):
                 images, texts = batch
-                images = images.to(device=device, dtype=input_dtype, non_blocking=True)
+                if isinstance(images, (list, tuple)):
+                    assert len(images) == 2
+                    images[0] = images[0].to(device=device, dtype=input_dtype, non_blocking=True)
+                    images[1] = images[1].to(device=device, dtype=input_dtype, non_blocking=True)
+                else:
+                    images = images.to(device=device, dtype=input_dtype, non_blocking=True)
                 texts = texts.to(device=device, non_blocking=True)
 
+                need_process = False
                 with autocast():
+                    
+                    # extra process for EchoCLIP models working with videos
+                    if isinstance(images, (list, tuple)) and "DINOv2" not in args.model:
+                        need_process = True
+                        assert len(images) == 2, "Images should be a tuple of (video, mask) for DINOv2 models."
+                        assert len(images[0].shape) == 5, "Video input should be a 5D tensor for DINOv2 models."
+                        B, C, Frame, H, W = images[0].shape
+                        masks = images[1]
+                        old_images = images.copy()
+                        images = images[0].permute(0, 2, 1, 3, 4).reshape(B * Frame, C, H, W)
+                        if images.max() > 1:
+                            images = images / 255.0
+                        images = ((images - torch.tensor(model.visual.image_mean).view(1, 3, 1, 1).to(args.device)) / torch.tensor(model.visual.image_std).view(1, 3, 1, 1).to(args.device)).to(torch.bfloat16)
+                        
                     model_out = model(images, texts)
                     image_features = model_out["image_features"]
+                    if need_process:
+                        # reshape back to [B, F, hidden_dim]
+                        image_features = image_features.view(B, Frame, -1)
+                        image_features = image_features * masks.unsqueeze(-1)
+                        image_features = image_features.sum(dim=1) / masks.sum(dim=1, keepdim=True)
+                        images = old_images
+                    
                     text_features = model_out["text_features"]
                     logit_scale = model_out["logit_scale"]
                     # features are accumulated in CPU tensors, otherwise GPU memory exhausted quickly
@@ -290,8 +325,12 @@ def evaluate(model, data, epoch, args, tb_writer=None, tokenizer=None):
                     logits_per_image = logit_scale * image_features @ text_features.t()
                     logits_per_text = logits_per_image.t()
 
-                    batch_size = images.shape[0]
+                    if isinstance(images, (list, tuple)):
+                        batch_size = images[0].shape[0]
+                    else:
+                        batch_size = len(images)
                     labels = torch.arange(batch_size, device=device).long()
+                    # print("batch_size", batch_size, "logits_per_image.shape:", logits_per_image.shape, "logits_per_text.shape:", logits_per_text.shape, "labels", labels)
                     total_loss = (
                         F.cross_entropy(logits_per_image, labels) +
                         F.cross_entropy(logits_per_text, labels)
