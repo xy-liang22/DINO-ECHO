@@ -178,6 +178,31 @@ class EchoEmbeddingClassification(Dataset):
         return embedding, label
 
 
+class EchoEmbeddingClassificationPredict(Dataset):
+    def __init__(self, data_path, df, splits, processor=None, data_path_field='path', num_classes=2, **kwargs):
+        super().__init__()
+        self.df_ = df[df[data_path_field].isin(splits[0])].set_index(data_path_field).loc[splits[0]].reset_index()
+        self.studies = self.df_[data_path_field].to_list()
+        self.data = torch.load(data_path)
+        self.n_classes = num_classes
+        self.label_dict = {i: i for i in range(self.n_classes)}
+
+        print(f"Number of studies: {len(self.studies)}, Number of labels: {self.n_classes}")
+
+        self.mode = 'binary' if self.n_classes == 2 else 'multiclass'
+    
+    def __len__(self):
+        return len(self.studies)
+    
+    def __getitem__(self, item):
+        study = self.studies[item]
+        embedding = self.data[study]
+        if isinstance(embedding, dict):
+            embedding = embedding['embedding']
+        study_id = torch.tensor(item).long()
+        return embedding, study_id
+
+
 class EchoViewClassification(Dataset):
     
     def __init__(self, data_path, df, splits, processor=None, data_path_field='path', **kwargs):

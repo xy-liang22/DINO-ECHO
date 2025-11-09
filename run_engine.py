@@ -355,20 +355,42 @@ def predict(data_loader, model, device):
     header = "Predict:"
     
     model.eval()
-    predictions = {"case_id:": list(), "file_name": list(), "prediction": list()}
-    id_to_video = data_loader.dataset.id_to_video
-    pred_to_label = data_loader.dataset.pred_to_label
-    for embeddings, video_ids in metric_logger.log_every(data_loader, 10, header):
-        if isinstance(embeddings, (list, tuple)):
-            embeddings = [emb.to(device, non_blocking=True) for emb in embeddings]
-        else:
-            embeddings = embeddings.to(device, non_blocking=True)
-        
-        with torch.cuda.amp.autocast():
-            output = model(embeddings)
-        pred = torch.argmax(output, dim=1).cpu().numpy()
-        for i in range(len(video_ids)):
-            predictions["case_id:"].append(id_to_video[video_ids[i]].split('/')[0])
-            predictions["file_name"].append(id_to_video[video_ids[i]].split('/')[1].split('.')[0])
-            predictions["prediction"].append(pred_to_label[pred[i]])
+    if getattr(data_loader.dataset, "id_to_video", None):
+        # video level predictions
+        predictions = {"case_id": list(), "file_name": list(), "prediction": list()}
+        id_to_video = data_loader.dataset.id_to_video
+        pred_to_label = data_loader.dataset.pred_to_label
+        for embeddings, video_ids in metric_logger.log_every(data_loader, 10, header):
+            if isinstance(embeddings, (list, tuple)):
+                embeddings = [emb.to(device, non_blocking=True) for emb in embeddings]
+            else:
+                embeddings = embeddings.to(device, non_blocking=True)
+            
+            with torch.cuda.amp.autocast():
+                output = model(embeddings)
+            pred = torch.argmax(output, dim=1).cpu().numpy()
+            for i in range(len(video_ids)):
+                if len(id_to_video[video_ids[i]].split('/')) > 1:
+                    predictions["case_id"].append(id_to_video[video_ids[i]].split('/')[0])
+                    predictions["file_name"].append(id_to_video[video_ids[i]].split('/')[1].split('.')[0])
+                else:
+                    # only case_id is given
+                    predictions["case_id"]
+                predictions["prediction"].append(pred_to_label[pred[i]])
+    else:
+        # study level predictions
+        predictions = {"study_id": list(), "prediction": list()}
+        id_to_study = data_loader.dataset.studies
+        for embeddings, study_ids in metric_logger.log_every(data_loader, 10, header):
+            if isinstance(embeddings, (list, tuple)):
+                embeddings = [emb.to(device, non_blocking=True) for emb in embeddings]
+            else:
+                embeddings = embeddings.to(device, non_blocking=True)
+            
+            with torch.cuda.amp.autocast():
+                output = model(embeddings)
+            pred = torch.argmax(output, dim=1).cpu().numpy()
+            for i in range(len(study_ids)):
+                predictions["study_id"].append(id_to_study[study_ids[i]])
+                predictions["prediction"].append(pred[i])
     return predictions

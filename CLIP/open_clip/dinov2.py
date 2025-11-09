@@ -152,6 +152,30 @@ class DINOv2(nn.Module):
         
         return logits
 
+class ViewInformedDINOv2(DINOv2):
+    def __init__(self,
+                 config_path: str,
+                 image_size: int=256,
+                 pretrained: str=None,
+                 embed_dim: int=768,
+                 num_views: int=3,
+                 **kwargs):
+        super(ViewInformedDINOv2, self).__init__(
+            config_path=config_path,
+            image_size=image_size,
+            pretrained=pretrained,
+            embed_dim=embed_dim,
+            **kwargs
+        )
+        self.num_views = num_views
+        self.view_embedding = nn.Embedding(num_views, embed_dim)
+        print(f"Using ViewInformedDINOv2 with {num_views} views.")
+
+    def forward(self, x, view_ids):
+        logits = super(ViewInformedDINOv2, self).forward(x)  # [B, embed_dim]
+        view_embeds = self.view_embedding(view_ids)  # [B, embed_dim]
+        logits = logits + view_embeds  # Incorporate view information
+        return logits
 
 if __name__ == '__main__':
     pretrained = "/mnt/hanoverdev/scratch/hanwen/exp/echofound/pretrain_dinov2/20250205_vitl16_lbsz64_gbsz512_500ep_noKoleo/eval/training_624999/teacher_checkpoint.pth"

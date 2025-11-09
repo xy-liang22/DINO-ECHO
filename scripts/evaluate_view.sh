@@ -6,9 +6,9 @@ dataset=view
 # run_names=("study_multi_videos_epoch100_new" "original_epoch100_new" "public_epoch100_new" "echoclip_epoch100")
 # data_paths=("dinov2_study_multi_videos_embeddings" "dinov2_original_embeddings" "dinov2_public_embeddings" "echoclip_embeddings")
 # hidden_dim=(1024 1024 1024 512)
-run_names=("classify_resplit" "classify_resplit_echoclip")
-data_paths=("dinov2_study_original1_embeddings_multi_videos" "echoclip_embeddings")
-hidden_dim=(1024 512)
+run_names=("original1" "public")
+data_paths=("dinov2_original1_fullsize_embeddings" "dinov2_public_embeddings")
+hidden_dim=(1024 1024)
 # run_names=("study_original1_multi_videos_fullsize_epoch100_new")
 # data_paths=("dinov2_study_original1_embeddings_multi_videos")
 # hidden_dim=(1024)
@@ -18,7 +18,7 @@ for j in ${!tasks_list[@]}; do
     for i in ${!run_names[@]}; do
         run_name_suffix=${run_names[i]}
         data_path=${data_paths[i]}
-        run_name=${task}_${run_name_suffix} 
+        run_name=${task}_classify_resplit_${run_name_suffix} 
         hidden_dim_value=${hidden_dim[i]}
         python run.py --model linear_classifier  \
                     --data_path /data/ECHO/${data_path} \

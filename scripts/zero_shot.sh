@@ -1,5 +1,6 @@
 # tasks_list=("LHF" "RHF" "DF" "LAD" "RAD" "RVD" "AV_regurgitation" "AV_stenosis" "MV_regurgitation" "MV_stenosis" "TV_regurgitation" "PE" "LVH")
-tasks_list=("PV_stenosis" "TV_stenosis")
+# tasks_list=("PV_stenosis" "TV_stenosis")
+tasks_list=("LHF" "RHF" "DF" "LAD" "RAD" "LVD" "RVD" "AV_regurgitation" "AV_stenosis" "MV_regurgitation" "MV_stenosis" "TV_regurgitation" "TV_stenosis" "PV_stenosis" "PV_regurgitation" "PE" "LVH")
 device=cuda:2
 num_classes=2
 dataset=clip_study_only
@@ -7,7 +8,7 @@ dataset=clip_study_only
 # data_paths=("dinov2_study_original1_embeddings" "dinov2_study_original1_embeddings_multi_videos" "dinov2_clip_embeddings" "dinov2_study_embeddings" "dinov2_study_multi_videos_embeddings" "dinov2_transformer_embeddings" "dinov2_transformer_original1_fullsize_embeddings")
 # pretrained_paths=("BiomedBERT_study_original1_proj_dist/checkpoints/epoch_20.pt" "BiomedBERT_study_original1_proj_dist/checkpoints/epoch_20.pt" "epoch_30_lr_3e-6_BiomedBERT/checkpoints/epoch_12.pt" "BiomedBERT_study_lr3e-6_frame80_bsz2_accum12_proj_dist/checkpoints/epoch_28.pt" "BiomedBERT_study_lr3e-6_frame80_bsz2_accum12_proj_dist/checkpoints/epoch_28.pt" "BiomedBERT_study_lr3e-6_frame80_bsz2_accum12_proj_transformer_dist/checkpoints/epoch_25.pt" "BiomedBERT_study_original1_proj_transformer_dist/checkpoints/epoch_21.pt")
 # clip_models=("DINOv2_BiomedBERT_study_new" "DINOv2_BiomedBERT_study_new" "DINOv2_BiomedBERT" "DINOv2_BiomedBERT_study" "DINOv2_BiomedBERT_study" "DINOv2_BiomedBERT_study_transformer" "DINOv2_BiomedBERT_study_transformer_new")
-run_names=("study_original1_proj_fullsize_multi_videos")
+run_names=("study_original1_proj_fullsize_multi_videos_predict")
 data_paths=("dinov2_study_original1_embeddings_multi_videos")
 pretrained_paths=("BiomedBERT_study_original1_proj_dist/checkpoints/epoch_20.pt")
 clip_models=("DINOv2_BiomedBERT_study_new")
